@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    --text-color: #FFFFFF;
+    --primary-color: #7B5AFF;
+    --secondary-color: #4A25E0;
+    --dark-color: #1C0446;
+  }
+
+  body {
+    @apply font-primary;
+  }
+}
+
+/* styles/globals.css */
+@layer utilities {
+  .scrollbar::-webkit-scrollbar {
+    width: 10px !important;
+    display: block !important;
+  }
+
+  .scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar::-webkit-scrollbar-thumb {
+    background: #f8f8f8 !important;
+    border-radius: 10px;
+  }
+
+  .scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #e9e9e9;
+  }
+}
+
+/* Add these styles for the typing cursor */
+.typing-cursor {
+  display: inline-block;
+  width: 3px;
+  height: 1em;
+  background-color: currentColor;
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  from, to { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.message-text {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
