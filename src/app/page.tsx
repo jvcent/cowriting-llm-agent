@@ -96,27 +96,20 @@ export default function Terms() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                         {/* Single peer  option (without teacher) */}
                         <button
-                            onClick={() => router.push('/group')}
+                            onClick={() => router.push('/single')}
                             disabled={!termsAccepted}
                             className={`flex flex-col items-center p-6 rounded-xl border-2 transition-all ${termsAccepted
                                     ? 'bg-teal-600 hover:bg-teal-700 border-white cursor-pointer'
                                     : 'bg-gray-700 border-gray-600 cursor-not-allowed opacity-50'
                                 }`}
                         >
-                            <div className="flex mb-4">
+                            <div className="flex mb-4 items-center justify-center">
                                 <Image
                                     src="logic_avatar.png"
-                                    alt="Logic Bot"
-                                    width={60}
-                                    height={60}
-                                    className="rounded-full border-2 border-white -mr-3"
-                                />
-                                <Image
-                                    src="pattern_avatar.png"
                                     alt="Pattern Bot"
-                                    width={60}
-                                    height={60}
-                                    className="rounded-full border-2 border-white -ml-3"
+                                    width={80}
+                                    height={80}
+                                    className="rounded-full border-2 border-white"
                                 />
                             </div>
                             <h3 className="text-xl font-bold text-white mb-2">Partner Writing</h3>
@@ -127,7 +120,7 @@ export default function Terms() {
 
                         {/* Multiple peers option */}
                         <button
-                            onClick={() => router.push('/multi')}
+                            onClick={() => router.push('/group')}
                             disabled={!termsAccepted}
                             className={`flex flex-col items-center p-6 rounded-xl border-2 transition-all ${termsAccepted
                                     ? 'bg-purple-600 hover:bg-purple-700 border-white cursor-pointer'
@@ -143,11 +136,18 @@ export default function Terms() {
                                     className="rounded-full border-2 border-white -mr-3"
                                 />
                                 <Image
-                                    src="bob_avatar.svg"
-                                    alt="Bob"
+                                    src="red_avatar.png"
+                                    alt="Red bot"
                                     width={60}
                                     height={60}
-                                    className="rounded-full border-2 border-white"
+                                    className="rounded-full border-2 border-white bg-pink-300"
+                                />
+                                <Image
+                                    src="green_avatar.png"
+                                    alt="Green bot"
+                                    width={60}
+                                    height={60}
+                                    className="rounded-full border-2 border-white bg-green-400"
                                 />
                                 <Image
                                     src="pattern_avatar.png"

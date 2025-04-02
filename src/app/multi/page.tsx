@@ -8,7 +8,7 @@ import { aiService, AI_MODELS } from '@/services/AI';
 import { Message } from '@/utils/types';
 import TypewriterTextWrapper from "@/components/TypewriterTextWrapper";
 
-export default function MultiPage() {
+export default function GroupPage() {
     const router = useRouter();
 
     // State management

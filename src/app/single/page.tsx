@@ -1,20 +1,19 @@
-'use client'
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import TypewriterText from '@/components/TypewriterText';
-import { aiService, AI_MODELS } from '@/services/AI';
-import { Message } from '@/utils/types';
+import TypewriterText from "@/components/TypewriterText";
+import { aiService, AI_MODELS } from "@/services/AI";
+import { Message } from "@/utils/types";
 import TypewriterTextWrapper from "@/components/TypewriterTextWrapper";
 
-export default function MultiPage() {
+export default function SinglePage() {
   const router = useRouter();
 
   // State management
   const [messages, setMessages] = useState<Message[]>([]);
   const [completedMessageIds, setCompletedMessageIds] = useState<number[]>([]);
-  const [scratchboardContent, setScratchboardContent] = useState("");
   const [input, setInput] = useState("");
   const [finalAnswer, setFinalAnswer] = useState("");
   const [nextMessageId, setNextMessageId] = useState(3);
@@ -32,7 +31,8 @@ export default function MultiPage() {
   const [loadedQuestions, setLoadedQuestions] = useState(false);
 
   // Timer state
-  const [timeLeft, setTimeLeft] = useState(120);
+  const timerDuration = 3;
+  const [timeLeft, setTimeLeft] = useState(timerDuration);
   const roundEndedRef = useRef(false);
 
   // Question tracking
@@ -43,25 +43,25 @@ export default function MultiPage() {
   // Define the AI agents - only Bob
   const agents = [
     {
-      id: 'bob',
-      name: 'Bob',
-      avatar: 'bob_avatar.svg',
+      id: "bob",
+      name: "Bob",
+      avatar: "bob_avatar.svg",
       systemPrompt: `You are Bob, an experienced and encouraging math teacher guiding a student.
 When introducing problems, provide clear context and relevant background concepts.
 Guide discussions without giving away solutions. 
 Respond to student questions with helpful insights and Socratic questioning.
 Acknowledge good observations and gently correct misconceptions.
-Your goal is to facilitate learning through guided discovery.`
-    }
+Your goal is to facilitate learning through guided discovery.`,
+    },
   ];
 
   // Load questions from JSON file
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        const response = await fetch('/questions.json');
+        const response = await fetch("/questions.json");
         if (!response.ok) {
-          throw new Error('Failed to fetch questions');
+          throw new Error("Failed to fetch questions");
         }
 
         const data = await response.json();
@@ -78,7 +78,7 @@ Your goal is to facilitate learning through guided discovery.`
         setAllQuestions([
           "In how many ways can four couples be seated at a round table if the men and women want to sit alternately?",
           "In how many different ways can five people be seated at a circular table?",
-          "A shopping mall has a straight row of 5 flagpoles at its main entrance plaza. It has 3 identical green flags and 2 identical yellow flags. How many distinct arrangements of flags on the flagpoles are possible?"
+          "A shopping mall has a straight row of 5 flagpoles at its main entrance plaza. It has 3 identical green flags and 2 identical yellow flags. How many distinct arrangements of flags on the flagpoles are possible?",
         ]);
         setLoadedQuestions(true);
       }
@@ -108,19 +108,25 @@ Your goal is to facilitate learning through guided discovery.`
     const tryCallback = () => {
       // Safety timeout to prevent infinite waiting
       if (Date.now() - startTime > maxDelay) {
-        console.warn('Timeout waiting for typing to complete, proceeding anyway');
+        console.warn(
+          "Timeout waiting for typing to complete, proceeding anyway"
+        );
         callback();
         return;
       }
 
       if (typingMessageIds.length > 0) {
-        console.log(`Messages still typing: ${typingMessageIds.join(', ')}, delaying action`);
+        console.log(
+          `Messages still typing: ${typingMessageIds.join(
+            ", "
+          )}, delaying action`
+        );
         setTimeout(tryCallback, 800);
         return;
       }
 
       // No typing in progress, safe to proceed
-      console.log('No typing in progress, proceeding with action');
+      console.log("No typing in progress, proceeding with action");
       callback();
     };
 
@@ -163,7 +169,8 @@ Your goal is to facilitate learning through guided discovery.`
     if (!chatContainer) return;
 
     // Check if this is a programmatic scroll (very recent auto-scroll)
-    const isProgrammaticScroll = Date.now() - lastManualScrollTimeRef.current < 50;
+    const isProgrammaticScroll =
+      Date.now() - lastManualScrollTimeRef.current < 50;
 
     if (isProgrammaticScroll) {
       // Ignore programmatic scrolls
@@ -171,9 +178,12 @@ Your goal is to facilitate learning through guided discovery.`
     }
 
     // More generous threshold - user only needs to scroll a small amount
-    const isNearBottom = Math.abs(
-      (chatContainer.scrollHeight - chatContainer.scrollTop) - chatContainer.clientHeight
-    ) < 150;
+    const isNearBottom =
+      Math.abs(
+        chatContainer.scrollHeight -
+          chatContainer.scrollTop -
+          chatContainer.clientHeight
+      ) < 150;
 
     // If user scrolls up even slightly, set manual override
     if (!isNearBottom) {
@@ -196,7 +206,7 @@ Your goal is to facilitate learning through guided discovery.`
     // Only reset manual override if the new message is from user
     // This way, generated text won't reset the override
     const latestMessage = messages[messages.length - 1];
-    if (latestMessage && latestMessage.sender === 'user') {
+    if (latestMessage && latestMessage.sender === "user") {
       // User sent a new message, reset the override
       manualScrollOverrideRef.current = false;
 
@@ -215,12 +225,12 @@ Your goal is to facilitate learning through guided discovery.`
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
   // Update checkForBotMention to only check for Bob
   const checkForBotMention = (message: string) => {
-    return 'bob'; // Always return bob since he's the only agent
+    return "bob"; // Always return bob since he's the only agent
   };
 
   // Update AI response generation to only use Bob
@@ -236,51 +246,55 @@ Your goal is to facilitate learning through guided discovery.`
     try {
       // Show typing indicator temporarily
       const tempMessageId = getUniqueMessageId();
-      setMessages(prev => [...prev, {
-        id: tempMessageId,
-        sender: 'ai',
-        text: '...',
-        agentId: selectedAgent.id,
-        timestamp: new Date().toISOString()
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: tempMessageId,
+          sender: "ai",
+          text: "...",
+          agentId: selectedAgent.id,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
 
       // Generate AI response using the correct API call
       const response = await aiService.generateResponse(
         [
           {
             id: 1,
-            sender: 'user',
-            text: `The current problem is: ${currentQuestion}`
+            sender: "user",
+            text: `The current problem is: ${currentQuestion}`,
           },
           {
             id: 2,
-            sender: 'user',
-            text: `The student asked: ${userMessage}`
-          }
+            sender: "user",
+            text: `The student asked: ${userMessage}`,
+          },
         ],
         {
           systemPrompt: selectedAgent.systemPrompt,
-          model: currentModel
+          model: currentModel,
         }
       );
 
       // Replace typing indicator with actual message
-      setMessages(prev => prev.map(msg =>
-        msg.id === tempMessageId
-          ? {
-            ...msg,
-            text: response,
-            timestamp: new Date().toISOString()
-          }
-          : msg
-      ));
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempMessageId
+            ? {
+                ...msg,
+                text: response,
+                timestamp: new Date().toISOString(),
+              }
+            : msg
+        )
+      );
 
       // Add to typing state
-      setTypingMessageIds(prev => [...prev, tempMessageId]);
-
+      setTypingMessageIds((prev) => [...prev, tempMessageId]);
     } catch (error) {
       console.error("Error generating AI response:", error);
-      setMessages(prev => prev.filter(msg => msg.text !== '...'));
+      setMessages((prev) => prev.filter((msg) => msg.text !== "..."));
     } finally {
       setBotThinking(false);
     }
@@ -295,13 +309,13 @@ Your goal is to facilitate learning through guided discovery.`
 
     const userMessage: Message = {
       id: getUniqueMessageId(),
-      sender: 'user',
+      sender: "user",
       text: input,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
 
     // Force scroll to bottom when user sends a message
     forceScrollToBottomRef.current = true;
@@ -319,13 +333,16 @@ Your goal is to facilitate learning through guided discovery.`
     try {
       // Add Bob's evaluation message
       const bobMessageId = getUniqueMessageId();
-      setMessages(prev => [...prev, {
-        id: bobMessageId,
-        sender: "ai",
-        text: "...",
-        agentId: "bob",
-        timestamp: new Date().toISOString()
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: bobMessageId,
+          sender: "ai",
+          text: "...",
+          agentId: "bob",
+          timestamp: new Date().toISOString(),
+        },
+      ]);
 
       // Generate Bob's evaluation of the answer
       const response = await aiService.generateResponse(
@@ -335,7 +352,7 @@ Your goal is to facilitate learning through guided discovery.`
             sender: "user",
             text: `Problem: ${question}
                     
-Student's final answer: ${finalAnswer}
+Student's final response: ${finalAnswer}
 
 As Bob the teacher, provide:
 1. The correct solution to this problem with step-by-step explanation
@@ -343,28 +360,30 @@ As Bob the teacher, provide:
 3. Specific feedback on their approach and reasoning
 4. Key learning points from this problem
 
-Format your response in a clear, encouraging way as a teacher would.`
-          }
+Format your response in a clear, encouraging way as a teacher would.`,
+          },
         ],
         {
           systemPrompt: agents[0].systemPrompt,
-          model: currentModel
+          model: currentModel,
         }
       );
 
       // Update Bob's evaluation message
-      setMessages(prev => prev.map(msg =>
-        msg.id === bobMessageId
-          ? {
-            ...msg,
-            text: response,
-            timestamp: new Date().toISOString()
-          }
-          : msg
-      ));
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === bobMessageId
+            ? {
+                ...msg,
+                text: response,
+                timestamp: new Date().toISOString(),
+              }
+            : msg
+        )
+      );
 
       // Add to typing state for typewriter effect
-      setTypingMessageIds(prev => [...prev, bobMessageId]);
+      setTypingMessageIds((prev) => [...prev, bobMessageId]);
       setEvaluationComplete(true);
     } catch (error) {
       console.error("Error generating evaluation:", error);
@@ -374,7 +393,7 @@ Format your response in a clear, encouraging way as a teacher would.`
     }
   };
 
-  // Update startNewRound to only include Bob's introduction
+  // Update startNewRound to check for 2 questions instead of all questions
   const startNewRound = async () => {
     // Remove any bot tracking state
     setLastSpeakingBot(null);
@@ -386,10 +405,10 @@ Format your response in a clear, encouraging way as a teacher would.`
       return;
     }
 
-    // Check if we've used all questions and should go to the test screen
-    if (usedQuestionIndices.length >= allQuestions.length) {
-      console.log("All questions used, redirecting to test screen");
-      router.push('/break');
+    // Check if we've used 2 questions and should go to the test screen
+    if (usedQuestionIndices.length >= 2) {
+      console.log("2 questions completed, redirecting to break screen");
+      router.push("/break");
       return;
     }
 
@@ -399,7 +418,6 @@ Format your response in a clear, encouraging way as a teacher would.`
     setCompletedMessageIds([]);
     setTypingMessageIds([]);
     setEvaluationComplete(false);
-    setScratchboardContent("");
     setInput("");
     setFinalAnswer("");
     setUserHasScrolled(false);
@@ -407,12 +425,15 @@ Format your response in a clear, encouraging way as a teacher would.`
     try {
       // Find an unused question
       let newIndex = currentQuestionIndex;
-      while (usedQuestionIndices.includes(newIndex) && usedQuestionIndices.length < allQuestions.length) {
+      while (
+        usedQuestionIndices.includes(newIndex) &&
+        usedQuestionIndices.length < allQuestions.length
+      ) {
         newIndex = Math.floor(Math.random() * allQuestions.length);
       }
 
       setCurrentQuestionIndex(newIndex);
-      setUsedQuestionIndices(prev => [...prev, newIndex]);
+      setUsedQuestionIndices((prev) => [...prev, newIndex]);
 
       const selectedQuestion = allQuestions[newIndex];
       setCurrentQuestion(selectedQuestion);
@@ -426,22 +447,22 @@ Format your response in a clear, encouraging way as a teacher would.`
         sender: "ai",
         text: `Today we'll be working on an interesting problem. Take your time to understand it and think about your approach:\n\n${selectedQuestion}\n\nConsider what concepts might apply here. Feel free to ask questions as you work.`,
         agentId: "bob",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       setMessages([bobIntroMessage]);
-      setTypingMessageIds(prev => [...prev, bobIntroId]);
+      setTypingMessageIds((prev) => [...prev, bobIntroId]);
 
       // Reset timer and other state
-      setTimeLeft(120);
+      setTimeLeft(timerDuration);
       setIsQuestioningEnabled(true);
       roundEndedRef.current = false;
-
     } catch (error) {
       console.error("Error starting new round:", error);
 
       // Use a fallback question
-      const fallbackQuestion = "In how many ways can 5 distinct books be distributed to 3 distinct students such that each student gets at least one book?";
+      const fallbackQuestion =
+        "In how many ways can 5 distinct books be distributed to 3 distinct students such that each student gets at least one book?";
 
       setCurrentQuestion(fallbackQuestion);
 
@@ -450,18 +471,18 @@ Format your response in a clear, encouraging way as a teacher would.`
           id: 1,
           sender: "ai",
           text: "Let's work on this combinatorics problem today.",
-          agentId: "bob"
+          agentId: "bob",
         },
         {
           id: 2,
           sender: "ai",
           text: fallbackQuestion,
-          agentId: "bob"
-        }
+          agentId: "bob",
+        },
       ]);
 
       // Continue with the fallback question
-      setTimeLeft(120);
+      setTimeLeft(timerDuration);
       setIsQuestioningEnabled(true);
       roundEndedRef.current = false;
     }
@@ -497,13 +518,13 @@ Format your response in a clear, encouraging way as a teacher would.`
     ensureNoTypingInProgress(() => {
       const userFinalAnswer: Message = {
         id: getUniqueMessageId(),
-        sender: 'user',
-        text: `My final answer is: ${submissionText}\n\nMy reasoning:\n${scratchboardContent}`,
-        timestamp: new Date().toISOString()
+        sender: "user",
+        text: `My final answer is: ${submissionText}\n\n`,
+        timestamp: new Date().toISOString(),
       };
 
-      setMessages(prev => [...prev, userFinalAnswer]);
-      setFinalAnswer('');
+      setMessages((prev) => [...prev, userFinalAnswer]);
+      setFinalAnswer("");
 
       // Generate evaluation
       generateEvaluation(userFinalAnswer.text || "", currentQuestion);
@@ -512,7 +533,7 @@ Format your response in a clear, encouraging way as a teacher would.`
 
   // Add the handleSend function for the submit button
   const handleSend = () => {
-    if (!finalAnswer.trim() || !scratchboardContent.trim() || typingMessageIds.length > 0) return;
+    if (!finalAnswer.trim() || typingMessageIds.length > 0) return;
 
     // Record user activity
     setLastUserActivityTime(Date.now());
@@ -520,13 +541,13 @@ Format your response in a clear, encouraging way as a teacher would.`
     ensureNoTypingInProgress(() => {
       const userFinalAnswer: Message = {
         id: getUniqueMessageId(),
-        sender: 'user',
-        text: `My final answer is: ${finalAnswer}\n\nMy reasoning:\n${scratchboardContent}`,
-        timestamp: new Date().toISOString()
+        sender: "user",
+        text: `My final response is: ${finalAnswer}\n\n`,
+        timestamp: new Date().toISOString(),
       };
 
-      setMessages(prev => [...prev, userFinalAnswer]);
-      setFinalAnswer('');
+      setMessages((prev) => [...prev, userFinalAnswer]);
+      setFinalAnswer("");
 
       // Force scroll to bottom when user submits final answer
       forceScrollToBottomRef.current = true;
@@ -558,7 +579,7 @@ Format your response in a clear, encouraging way as a teacher would.`
     }
 
     const timerId = setTimeout(() => {
-      setTimeLeft(prevTime => prevTime - 1);
+      setTimeLeft((prevTime) => prevTime - 1);
     }, 1000);
 
     return () => clearTimeout(timerId);
@@ -572,14 +593,22 @@ Format your response in a clear, encouraging way as a teacher would.`
         {currentQuestion && (
           <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
             <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl text-white font-semibold">Problem:</h2>
+              <h2 className="text-xl text-white font-semibold">
+                Writing Prompt:
+              </h2>
               {/* Timer integrated in problem statement */}
-              <div className={`p-2 rounded-lg ${timeLeft > 20
-                ? 'bg-green-700'
-                : timeLeft > 10
-                  ? 'bg-yellow-600 animate-pulse'
-                  : 'bg-red-700 animate-pulse'} ml-4`}>
-                <div className="text-xl font-mono text-white">{formatTime(timeLeft)}</div>
+              <div
+                className={`p-2 rounded-lg ${
+                  timeLeft > 20
+                    ? "bg-green-700"
+                    : timeLeft > 10
+                    ? "bg-yellow-600 animate-pulse"
+                    : "bg-red-700 animate-pulse"
+                } ml-4`}
+              >
+                <div className="text-xl font-mono text-white">
+                  {formatTime(timeLeft)}
+                </div>
                 {timeLeft <= 20 && (
                   <div className="text-xs text-white text-center">
                     {timeLeft <= 10 ? "Time almost up!" : "Finish soon!"}
@@ -591,41 +620,28 @@ Format your response in a clear, encouraging way as a teacher would.`
           </div>
         )}
 
-        {/* Final Answer - Now above scratchboard with enhanced styling */}
-        <div className="bg-white bg-opacity-15 rounded-md p-4 mb-4 border-2 border-blue-400 shadow-lg">
-          <h3 className="text-xl text-white font-semibold mb-2">Your Final Answer</h3>
-          <div className="flex flex-col space-y-3">
-            <input
-              type="text"
+        {/* Final Answer */}
+        <div className="flex flex-col bg-white bg-opacity-15 rounded-md p-4 mb-4 h-full border-2 border-blue-400 shadow-lg">
+          <h3 className="text-xl text-white font-semibold mb-2">Your Essay</h3>
+          <div className="flex grow flex-col space-y-3">
+            <textarea
               value={finalAnswer}
               onChange={(e) => setFinalAnswer(e.target.value)}
-              placeholder="Enter your final answer here..."
-              className="w-full bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg"
+              placeholder="Enter your response here..."
+              className="w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg"
             />
             <button
               onClick={() => handleSend()}
-              disabled={!finalAnswer.trim() || !scratchboardContent.trim() || typingMessageIds.length > 0}
-              className={`px-4 py-3 rounded-md text-lg font-medium ${finalAnswer.trim() && scratchboardContent.trim() && typingMessageIds.length === 0
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                }`}
+              disabled={!finalAnswer.trim() || typingMessageIds.length > 0}
+              className={`px-4 py-3 rounded-md text-lg font-medium ${
+                finalAnswer.trim() && typingMessageIds.length === 0
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-gray-700 text-gray-400 cursor-not-allowed"
+              }`}
             >
-              Submit Final Answer
+              Submit Essay
             </button>
           </div>
-        </div>
-
-        {/* Scratchboard - Now below final answer with different styling */}
-        <div className="flex-1 border border-gray-600 rounded-md p-3 bg-black bg-opacity-30 overflow-auto">
-          <div className="flex justify-between mb-2">
-            <h3 className="text-white font-semibold">Rough Work (Scratchpad)</h3>
-          </div>
-          <textarea
-            value={scratchboardContent}
-            onChange={(e) => setScratchboardContent(e.target.value)}
-            className="w-full h-[calc(100%-40px)] min-h-[200px] bg-black bg-opacity-40 text-white border-none rounded p-2"
-            placeholder="Show your work here... (calculations, reasoning, etc.)"
-          />
         </div>
       </div>
 
@@ -643,21 +659,27 @@ Format your response in a clear, encouraging way as a teacher would.`
                   height={40}
                   className="rounded-full border-2 border-white"
                 />
-                <span className="text-xs text-white ml-2">{agents[0].name}</span>
+                <span className="text-xs text-white ml-2">
+                  {agents[0].name}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Chat messages - Scrollable */}
-          <div className="flex-1 p-4 overflow-y-auto"
+          <div
+            className="flex-1 p-4 overflow-y-auto"
             ref={chatContainerRef}
-            onScroll={handleScroll}>
+            onScroll={handleScroll}
+          >
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`mb-4 flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`mb-4 flex ${
+                  msg.sender === "user" ? "justify-end" : "justify-start"
+                }`}
               >
-                {msg.sender === 'ai' && (
+                {msg.sender === "ai" && (
                   <div className="mr-2 flex-shrink-0">
                     <Image
                       src={agents[0].avatar}
@@ -670,20 +692,21 @@ Format your response in a clear, encouraging way as a teacher would.`
                 )}
 
                 <div
-                  className={`max-w-[75%] rounded-lg p-3 ${msg.sender === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : msg.sender === 'system'
-                      ? 'bg-purple-700 text-white'
-                      : 'bg-white bg-opacity-10 text-white'
-                    }`}
+                  className={`max-w-[75%] rounded-lg p-3 ${
+                    msg.sender === "user"
+                      ? "bg-blue-600 text-white"
+                      : msg.sender === "system"
+                      ? "bg-purple-700 text-white"
+                      : "bg-white bg-opacity-10 text-white"
+                  }`}
                 >
-                  {msg.sender === 'ai' && (
+                  {msg.sender === "ai" && (
                     <div className="text-sm text-gray-300 mb-1 font-bold">
                       {agents[0].name}
                     </div>
                   )}
 
-                  {msg.sender === 'system' && (
+                  {msg.sender === "system" && (
                     <div className="text-sm text-gray-300 mb-1 font-bold">
                       Official Solution
                     </div>
@@ -705,8 +728,10 @@ Format your response in a clear, encouraging way as a teacher would.`
 
                         setTimeout(() => {
                           if (typingMessageIds.includes(msg.id)) {
-                            setTypingMessageIds(prev => prev.filter(id => id !== msg.id));
-                            setCompletedMessageIds(prev => [...prev, msg.id]);
+                            setTypingMessageIds((prev) =>
+                              prev.filter((id) => id !== msg.id)
+                            );
+                            setCompletedMessageIds((prev) => [...prev, msg.id]);
 
                             if (msg.onComplete) {
                               msg.onComplete();
@@ -739,7 +764,7 @@ Format your response in a clear, encouraging way as a teacher would.`
                   placeholder="Ask about the problem (mention Bob specifically if needed)..."
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleUserQuestion();
                     }
@@ -748,10 +773,11 @@ Format your response in a clear, encouraging way as a teacher would.`
                 <button
                   onClick={handleUserQuestion}
                   disabled={!input.trim() || typingMessageIds.length > 0}
-                  className={`px-4 py-2 rounded-md ${input.trim() && typingMessageIds.length === 0
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                    }`}
+                  className={`px-4 py-2 rounded-md ${
+                    input.trim() && typingMessageIds.length === 0
+                      ? "bg-blue-600 hover:bg-blue-700 text-white"
+                      : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                  }`}
                 >
                   Ask
                 </button>

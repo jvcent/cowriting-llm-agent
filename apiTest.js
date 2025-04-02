@@ -52,5 +52,47 @@ async function testClaudeAPI() {
     }
 }
 
+const writingTopic = '' 
+
+async function interactClaudeAPI() {
+    try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': CLAUDE_API_KEY,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-3-haiku-20240307',
+                max_tokens: 100,
+                messages: [
+                    {
+                        role: 'user',
+                        content: `The user is writing an essay/story on ${writingTopic} and they are given the prompt Y. Give 4 detailed personas of AI peers who could help the user write the essay 
+                        which is (i) different from all the other users who may be working on this essay (ii) diverse in content. 
+                        The peers should have a good conversation with each other in the chat such that the user on reading these chats could come up with a diverse, effective, etc. essay…
+                        `
+                    }
+                ]
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('\nResponse from Claude:');
+            console.log(data.content[0].text);
+        } else {
+            console.error('❌ ERROR: API request failed');
+            console.error('Status:', response.status);
+            console.error('Details:', data);
+        }
+    } catch (error) {
+        console.error('❌ ERROR: Failed to connect to Claude API');
+        console.error(error);
+    }
+}
+
 // Run the test
 testClaudeAPI();

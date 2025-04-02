@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { AI_MODELS } from '@/services/AI';
 
 // Don't expose API key on the client side - use server-side only
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
+const ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;
 
 export async function POST(request: Request) {
     try {
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+                'x-api-key': ANTHROPIC_API_KEY || '',
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+                        'x-api-key': process.env.CLAUDE_API_KEY || '',
                         'anthropic-version': '2023-06-01'
                     },
                     body: JSON.stringify({
