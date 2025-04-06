@@ -52,7 +52,7 @@ async function testClaudeAPI() {
     }
 }
 
-const writingTopic = '' 
+const writingTopic = `What Are the Most Important Things Students Should Learn in School? `
 
 async function interactClaudeAPI() {
     try {
@@ -65,13 +65,25 @@ async function interactClaudeAPI() {
             },
             body: JSON.stringify({
                 model: 'claude-3-haiku-20240307',
-                max_tokens: 100,
+                max_tokens: 2000,
                 messages: [
                     {
                         role: 'user',
-                        content: `The user is writing an essay/story on ${writingTopic} and they are given the prompt Y. Give 4 detailed personas of AI peers who could help the user write the essay 
-                        which is (i) different from all the other users who may be working on this essay (ii) diverse in content. 
-                        The peers should have a good conversation with each other in the chat such that the user on reading these chats could come up with a diverse, effective, etc. essay…
+                        content: `The user is writing creative essay on ${writingTopic}.  
+
+                        Give 3 personas AND system prompts for LLM peers who could help the advice and provide feedback for the user to write an essay which: 
+                        (i) Contains meaningful essay content
+                        (i) Produce meaningful essay content 
+                        (ii) maximize essay level diversity – be as different as possible from all the other users who may
+                             be writing an essay on this essay 
+                        (iii) maximize key point level diversity – assuming each essay is reduced to a set of key points of central arguments. 
+                             This type of diversity measures conceptual alignment rather than just textual similarity, revealing whether essays 
+                             express similar ideas, not just similar words. 
+                             
+                        Ensure the system prompts are detailed and distinct, each with its own unique and varying opinions, backgrounds, and stances on this topic. 
+
+                        The peers should be able to have a good constructive conversation with each other in the chat such that the user on reading 
+                        these chats could come up with an essay that is concise, diverse, and effective. 
                         `
                     }
                 ]
@@ -95,4 +107,4 @@ async function interactClaudeAPI() {
 }
 
 // Run the test
-testClaudeAPI();
+interactClaudeAPI();
