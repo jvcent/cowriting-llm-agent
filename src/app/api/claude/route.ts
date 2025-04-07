@@ -34,7 +34,7 @@ export async function POST(request: Request) {
             body: JSON.stringify({
                 model: modelToUse,
                 max_tokens: 4000,
-                temperature: 0.7,
+                temperature: 0.5,
                 system: systemPrompt || 'You are a helpful teaching assistant named Bob who helps students with math problems.',
                 messages: messages
             })
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
                     body: JSON.stringify({
                         model: 'claude-2.0',
                         max_tokens: 4000,
-                        temperature: 0.7,
+                        temperature: 0.5,
                         system: systemPrompt || 'You are a helpful teaching assistant named Bob who helps students with math problems.',
                         messages: messages
                     })

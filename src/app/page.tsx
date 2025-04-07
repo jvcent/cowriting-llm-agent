@@ -143,13 +143,6 @@ export default function Terms() {
                                     className="rounded-full border-2 border-white bg-pink-300"
                                 />
                                 <Image
-                                    src="green_avatar.png"
-                                    alt="Green bot"
-                                    width={60}
-                                    height={60}
-                                    className="rounded-full border-2 border-white bg-green-400"
-                                />
-                                <Image
                                     src="pattern_avatar.png"
                                     alt="Pattern Bot"
                                     width={60}
@@ -159,7 +152,7 @@ export default function Terms() {
                             </div>
                             <h3 className="text-xl font-bold text-white mb-2">Group Writing</h3>
                             <p className="text-white text-center text-sm">
-                                Write with 4 AI peers
+                                Write with 3 AI peers
                             </p>
                         </button>
 

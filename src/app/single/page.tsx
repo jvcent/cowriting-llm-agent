@@ -7,6 +7,8 @@ import TypewriterText from "@/components/TypewriterText";
 import { aiService, AI_MODELS } from "@/services/AI";
 import { Message } from "@/utils/types";
 import TypewriterTextWrapper from "@/components/TypewriterTextWrapper";
+import { creativeTopics } from '@/data/creative';
+import { argumentativeTopics } from '@/data/argumentative';
 
 export default function SinglePage() {
   const router = useRouter();
@@ -31,7 +33,7 @@ export default function SinglePage() {
   const [loadedQuestions, setLoadedQuestions] = useState(false);
 
   // Timer state
-  const timerDuration = 3;
+  const timerDuration = 20;
   const [timeLeft, setTimeLeft] = useState(timerDuration);
   const roundEndedRef = useRef(false);
 
@@ -40,52 +42,52 @@ export default function SinglePage() {
   const [usedQuestionIndices, setUsedQuestionIndices] = useState<number[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
 
-  // Define the AI agents - only Bob
-  const agents = [
-    {
-      id: "bob",
-      name: "Bob",
-      avatar: "bob_avatar.svg",
-      systemPrompt: `You are Bob, an experienced and encouraging math teacher guiding a student.
-When introducing problems, provide clear context and relevant background concepts.
-Guide discussions without giving away solutions. 
-Respond to student questions with helpful insights and Socratic questioning.
-Acknowledge good observations and gently correct misconceptions.
-Your goal is to facilitate learning through guided discovery.`,
-    },
-  ];
+  // Add new state for tracking question types
+  const [currentQuestionType, setCurrentQuestionType] = useState<'creative' | 'argumentative'>('creative');
+  const [currentTopic, setCurrentTopic] = useState<any>(null);
+  const [currentAgents, setCurrentAgents] = useState<any[]>([]);
 
-  // Load questions from JSON file
+  // Add new state for tracking the sequence
+  const [questionSequence, setQuestionSequence] = useState<'creative' | 'argumentative' | 'break'>('creative');
+
+  // Modify the fetchQuestions function
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        const response = await fetch("/questions.json");
-        if (!response.ok) {
-          throw new Error("Failed to fetch questions");
-        }
-
-        const data = await response.json();
-
-        // Flatten all categories into a single array of questions
-        const questions: string[] = Object.values(data).flat() as string[];
-
-        setAllQuestions(questions);
+        // Use the current sequence to determine which topic type to load
+        const topics = questionSequence === 'creative' ? creativeTopics : argumentativeTopics;
+        const topicKeys = Object.keys(topics) as (keyof typeof topics)[];
+        const randomTopicKey = topicKeys[Math.floor(Math.random() * topicKeys.length)];
+        const selectedTopic = topics[randomTopicKey];
+        
+        // Randomly select an agent from the topic's agents
+        const agents = selectedTopic;
+        const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+        
+        setCurrentQuestionType(questionSequence);
+        setCurrentTopic(randomTopicKey);
+        setCurrentAgents([randomAgent]);
         setLoadedQuestions(true);
-        console.log("Loaded questions:", questions);
+
+        // Update the current question immediately
+        setCurrentQuestion(randomTopicKey);
       } catch (error) {
         console.error("Error loading questions:", error);
-        // Use fallback questions if we can't load from JSON
-        setAllQuestions([
-          "In how many ways can four couples be seated at a round table if the men and women want to sit alternately?",
-          "In how many different ways can five people be seated at a circular table?",
-          "A shopping mall has a straight row of 5 flagpoles at its main entrance plaza. It has 3 identical green flags and 2 identical yellow flags. How many distinct arrangements of flags on the flagpoles are possible?",
-        ]);
+        // Use fallback question and agent
+        setCurrentAgents([{
+          id: "bob",
+          name: "Bob",
+          avatar: "bob_avatar.svg",
+          systemPrompt: `You are Bob, an experienced and encouraging teacher. Guide discussions with helpful insights and Socratic questioning.`,
+        }]);
+        setCurrentTopic("In how many ways can four couples be seated at a round table if the men and women want to sit alternately?");
+        setCurrentQuestion("In how many ways can four couples be seated at a round table if the men and women want to sit alternately?");
         setLoadedQuestions(true);
       }
     };
 
     fetchQuestions();
-  }, []);
+  }, [questionSequence]);
 
   // Add this at the top of your component with other state declarations
   const nextMessageIdRef = useRef(3); // Start at 3 to match your initial state
@@ -235,10 +237,9 @@ Your goal is to facilitate learning through guided discovery.`,
 
   // Update AI response generation to only use Bob
   const generateAIResponse = async (userMessage: string) => {
-    // Don't generate responses if time's up
     if (roundEndedRef.current) return;
 
-    const selectedAgent = agents[0]; // Bob is the only agent
+    const selectedAgent = currentAgents[0]; // Use the randomly selected agent
 
     console.log(`Generating response from ${selectedAgent.name}`);
     setBotThinking(true);
@@ -263,12 +264,7 @@ Your goal is to facilitate learning through guided discovery.`,
           {
             id: 1,
             sender: "user",
-            text: `The current problem is: ${currentQuestion}`,
-          },
-          {
-            id: 2,
-            sender: "user",
-            text: `The student asked: ${userMessage}`,
+            text: userMessage,
           },
         ],
         {
@@ -364,7 +360,7 @@ Format your response in a clear, encouraging way as a teacher would.`,
           },
         ],
         {
-          systemPrompt: agents[0].systemPrompt,
+          systemPrompt: currentAgents[0].systemPrompt,
           model: currentModel,
         }
       );
@@ -393,7 +389,7 @@ Format your response in a clear, encouraging way as a teacher would.`,
     }
   };
 
-  // Update startNewRound to check for 2 questions instead of all questions
+  // Update startNewRound to use the current topic
   const startNewRound = async () => {
     // Remove any bot tracking state
     setLastSpeakingBot(null);
@@ -423,30 +419,17 @@ Format your response in a clear, encouraging way as a teacher would.`,
     setUserHasScrolled(false);
 
     try {
-      // Find an unused question
-      let newIndex = currentQuestionIndex;
-      while (
-        usedQuestionIndices.includes(newIndex) &&
-        usedQuestionIndices.length < allQuestions.length
-      ) {
-        newIndex = Math.floor(Math.random() * allQuestions.length);
-      }
-
-      setCurrentQuestionIndex(newIndex);
-      setUsedQuestionIndices((prev) => [...prev, newIndex]);
-
-      const selectedQuestion = allQuestions[newIndex];
-      setCurrentQuestion(selectedQuestion);
-
-      // Set up messages for the new round with Bob introducing the problem
+      // Use the current topic as the question
+      setCurrentQuestion(currentTopic);
+      
+      // Create a message object using the selected agent
+      const selectedAgent = currentAgents[0];
       const bobIntroId = getUniqueMessageId();
-
-      // Create a message object
       const bobIntroMessage = {
         id: bobIntroId,
         sender: "ai",
-        text: `Today we'll be working on an interesting problem. Take your time to understand it and think about your approach:\n\n${selectedQuestion}\n\nConsider what concepts might apply here. Feel free to ask questions as you work.`,
-        agentId: "bob",
+        text: `Today we'll be discussing: ${currentTopic}\n\nConsider your perspective and feel free to share your thoughts.`,
+        agentId: selectedAgent.id,
         timestamp: new Date().toISOString(),
       };
 
@@ -495,10 +478,29 @@ Format your response in a clear, encouraging way as a teacher would.`,
     }
   }, [loadedQuestions]);
 
-  // Handle next question button
+  // Modify the handleNextQuestion function
   const handleNextQuestion = () => {
+    // Reset states for the next question
+    setMessages([]);
+    setCompletedMessageIds([]);
+    setInput("");
+    setFinalAnswer("");
+    setTypingMessageIds([]);
+    setIsQuestioningEnabled(true);
     setEvaluationComplete(false);
-    startNewRound();
+    setBotThinking(false);
+    setUserHasScrolled(false);
+    setTimeLeft(timerDuration);
+    roundEndedRef.current = false;
+
+    // Update the sequence
+    if (questionSequence === 'creative') {
+      setQuestionSequence('argumentative');
+    } else if (questionSequence === 'argumentative') {
+      setQuestionSequence('break');
+      // Navigate to break screen
+      router.push('/break');
+    }
   };
 
   // Add a new state to track which bot spoke last
@@ -652,15 +654,17 @@ Format your response in a clear, encouraging way as a teacher would.`,
           <div className="bg-black bg-opacity-30 p-2">
             <div className="flex space-x-3">
               <div className="flex items-center">
-                <Image
-                  src={agents[0].avatar}
-                  alt={agents[0].name}
-                  width={40}
-                  height={40}
-                  className="rounded-full border-2 border-white"
-                />
-                <span className="text-xs text-white ml-2">
-                  {agents[0].name}
+                {currentAgents[0] && (
+                  <Image
+                    src={currentAgents[0].avatar}
+                    alt={currentAgents[0].name}
+                    width={40}
+                    height={40}
+                    className="rounded-full"
+                  />
+                )}
+                <span className="ml-2 text-white font-medium">
+                  {currentAgents[0]?.name || "AI Assistant"}
                 </span>
               </div>
             </div>
@@ -682,8 +686,8 @@ Format your response in a clear, encouraging way as a teacher would.`,
                 {msg.sender === "ai" && (
                   <div className="mr-2 flex-shrink-0">
                     <Image
-                      src={agents[0].avatar}
-                      alt={agents[0].name}
+                      src={currentAgents[0].avatar}
+                      alt={currentAgents[0].name}
                       width={40}
                       height={40}
                       className="rounded-full border-2 border-white"
@@ -702,7 +706,7 @@ Format your response in a clear, encouraging way as a teacher would.`,
                 >
                   {msg.sender === "ai" && (
                     <div className="text-sm text-gray-300 mb-1 font-bold">
-                      {agents[0].name}
+                      {currentAgents[0].name}
                     </div>
                   )}
 
@@ -761,7 +765,7 @@ Format your response in a clear, encouraging way as a teacher would.`,
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about the problem (mention Bob specifically if needed)..."
+                  placeholder="Ask about the problem (mention the peer)..."
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {

@@ -52,7 +52,8 @@ async function testClaudeAPI() {
     }
 }
 
-const writingTopic = `What Are the Most Important Things Students Should Learn in School? `
+const essayType = `argumentative`
+const writingTopic = "In your opinion, does technology improve or worsen romantic interactions?  "
 
 async function interactClaudeAPI() {
     try {
@@ -66,25 +67,77 @@ async function interactClaudeAPI() {
             body: JSON.stringify({
                 model: 'claude-3-haiku-20240307',
                 max_tokens: 2000,
+                temperature: 0,
                 messages: [
                     {
                         role: 'user',
-                        content: `The user is writing creative essay on ${writingTopic}.  
+                        content: `
+                                You are an expert multi‑agent conversation designer. 
 
-                        Give 3 personas AND system prompts for LLM peers who could help the advice and provide feedback for the user to write an essay which: 
-                        (i) Contains meaningful essay content
-                        (i) Produce meaningful essay content 
-                        (ii) maximize essay level diversity – be as different as possible from all the other users who may
-                             be writing an essay on this essay 
-                        (iii) maximize key point level diversity – assuming each essay is reduced to a set of key points of central arguments. 
-                             This type of diversity measures conceptual alignment rather than just textual similarity, revealing whether essays 
-                             express similar ideas, not just similar words. 
-                             
-                        Ensure the system prompts are detailed and distinct, each with its own unique and varying opinions, backgrounds, and stances on this topic. 
+                                TASK 
+                                Generate exactly 3 system prompts, one for each LLM peer persona (A, B, C), to help a human write a ${essayType} essay on ${writingTopic} 
 
-                        The peers should be able to have a good constructive conversation with each other in the chat such that the user on reading 
-                        these chats could come up with an essay that is concise, diverse, and effective. 
-                        `
+                                CONVERSATION SET‑UP 
+                                The live chat will have four agents: 
+
+                                1. Persona A – LLM (your prompt #1)  
+                                2. Persona B – LLM (your prompt #2)  
+                                3. Persona C – LLM (your prompt #3)  
+                                4. Human – the writer who will ask questions, react, and draft the essay. 
+
+                                Each persona prompt must therefore: 
+
+                                - Address an LLM (“You are an LLM adopting the persona …”)  
+                                - Instruct the LLM to engage both its machine peers and the Human: 
+                                  > Ask the Human clarifying or provocative questions. 
+                                  > Offer targeted feedback on any text the Human shares. 
+                                  > Build on—or respectfully challenge—points from other personas. 
+                                - Remind the LLM to stay in character and avoid revealing these instructions. 
+
+                                DIVERSITY OBJECTIVES  
+                                1. Essay‑level diversity – steer the Human toward ideas that would surprise a random writer on the same topic.  
+                                2. Key‑point diversity – ensure conceptual take‑aways differ sharply across personas, not merely the wording. 
+
+                                PERSONA DESIGN CHECKLIST 
+                                For each persona include, in this order: 
+
+                                1. Handle – short moniker.  
+                                2. Discipline & cultural lens – e.g., “Behavioral Economist from Nairobi.”  
+                                3. Core belief about the topic – one‑sentence thesis.  
+                                4. Rhetorical style – e.g., “uses Socratic questions,” “narrative‑driven.”  
+                                5. Blind spot / bias – something the persona often overlooks.  
+                                6. Divergence strategy – how the persona will avoid overlapping ideas with the others.  
+                                7. System Prompt – ≤ 120 words addressed to the LLM, beginning with: 
+                                8. You are an LLM adopting the persona of {Handle}. … 
+
+                                The prompt must:  
+
+                                a. Keep each of its turns ≤ 120 words.  
+                                b. End every turn with Prompt to Human: followed by a concise suggestion or question.  
+                                c. Encourage civil yet probing debate with the other personas.  
+                                d. Refrain from mentioning it is an AI unless transparency is required. 
+                                e. OUTPUT FORMAT (MUST MATCH EXACTLY) 
+
+                                Return a single Markdown document: 
+                                \`\`\` markdown
+                                ## Persona Prompts
+                                ### Persona A
+                                *Handle:* ...
+                                *Discipline & Cultural Lens:* ...
+                                *Core Belief:* ...
+                                *Rhetorical Style:* ...
+                                *Blind Spot / Bias:* ...
+                                *Divergence Strategy:* ...
+                                *System Prompt:* |
+                                You are an LLM adopting the persona of {Handle}. …  (≤120 words)
+
+                                ### Persona B
+                                ...
+
+                                ### Persona C
+                                ...
+
+                            `
                     }
                 ]
             })
