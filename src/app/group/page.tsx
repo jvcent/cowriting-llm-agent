@@ -7,8 +7,10 @@ import TypewriterText from "@/components/TypewriterText";
 import { aiService, AI_MODELS } from "@/services/AI";
 import { Message } from "@/utils/types";
 import TypewriterTextWrapper from "@/components/TypewriterTextWrapper";
+import { creativeTopics } from "@/data/creative";
+import { argumentativeTopics } from "@/data/argumentative";
 
-export default function PeerOnlyPage() {
+export default function GroupPeerPage() {
   const router = useRouter();
 
   // State management
@@ -32,7 +34,7 @@ export default function PeerOnlyPage() {
   const [loadedQuestions, setLoadedQuestions] = useState(false);
 
   // Timer state
-  const timerDuration = 300;
+  const timerDuration = 5;
   const [timeLeft, setTimeLeft] = useState(timerDuration);
   const roundEndedRef = useRef(false);
 
@@ -46,31 +48,32 @@ export default function PeerOnlyPage() {
   const [isFeedbackInProgress, setIsFeedbackInProgress] = useState(false);
   const WORDS_THRESHOLD = 35;
 
-  // Define the AI agents - only Logic Bot and Pattern Bot
-  const agents = [
-    {
-      id: "logic",
-      name: "Logic Bot",
-      avatar: "logic_avatar.png",
-      systemPrompt: `You are Logic Bot, a student who excels at logical reasoning and step-by-step problem solving.
-As a fellow student in the class, you discuss math problems with other students.
-When asked about problems, provide logical analysis, structured thinking, and step-by-step reasoning.
-Explain your thinking clearly but don't immediately give away full solutions unless the student is really stuck.
-Ask thoughtful questions that help identify key logical structures or relationships in the problem.
-Your goal is to guide peers toward understanding through structured logical reasoning.`,
-    },
-    {
-      id: "pattern",
-      name: "Pattern Bot",
-      avatar: "pattern_avatar.png",
-      systemPrompt: `You are Pattern Bot, a student who excels at recognizing patterns in math problems.
-As a fellow student in the class, you discuss math problems with other students.
-When asked about problems, focus on identifying patterns, visualizations, and creative approaches.
-Explain your thinking clearly but don't immediately give away full solutions unless the student is really stuck.
-Suggest different ways to visualize or reframe problems to reveal underlying patterns.
-Your goal is to help peers see the problem from different angles and recognize elegant pattern-based solutions.`,
-    },
-  ];
+  // Add these state variables at the top of your component
+  const [currentPromptType, setCurrentPromptType] = useState<
+    "creative" | "argumentative"
+  >("creative");
+  const [currentPrompt, setCurrentPrompt] = useState<string>("");
+
+  // Add a new state to track when we should navigate
+  const [shouldNavigate, setShouldNavigate] = useState(false);
+
+  // Add new state variables
+  const [currentRound, setCurrentRound] = useState(0); // 0 = first prompt, 1 = second prompt, 2 = break
+
+  // Add helper function to get agents for a prompt
+  const getAgentsForPrompt = (
+    prompt: string,
+    type: "creative" | "argumentative"
+  ) => {
+    if (type === "creative") {
+      return creativeTopics[prompt] || [];
+    } else {
+      return argumentativeTopics[prompt] || [];
+    }
+  };
+
+  // Add agents state
+  const [agents, setAgents] = useState<any[]>([]);
 
   // Load questions from JSON file
   useEffect(() => {
@@ -557,27 +560,37 @@ Do not provide any evaluation of student work or suggestions for improvement.`,
     }
   };
 
-  // Modify the timer useEffect to trigger the auto-submit
+  // Modify the timer effect to set navigation flag instead of directly navigating
   useEffect(() => {
-    if (timeLeft <= 0) {
-      // Time's up logic
-      if (isQuestioningEnabled) {
-        // Only auto-submit if questioning is still enabled (hasn't been submitted yet)
-        autoSubmitTimeoutAnswer();
-      }
-      return;
+    if (timeLeft > 0 && !roundEndedRef.current) {
+      const timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            roundEndedRef.current = true;
+            // Set navigation flag instead of directly navigating
+            setShouldNavigate(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
     }
-
-    if (roundEndedRef.current) {
-      return;
-    }
-
-    const timerId = setTimeout(() => {
-      setTimeLeft((prevTime) => prevTime - 1);
-    }, 1000);
-
-    return () => clearTimeout(timerId);
   }, [timeLeft]);
+
+  // Add a new effect to handle navigation
+  useEffect(() => {
+    if (shouldNavigate) {
+      if (currentPromptType === "argumentative") {
+        router.push("/break");
+      } else {
+        startNewRound();
+      }
+      setShouldNavigate(false);
+    }
+  }, [shouldNavigate, currentPromptType]);
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -795,19 +808,12 @@ Do not provide any evaluation of student work or suggestions for improvement.`,
     }
   };
 
-  // Start new round or go to test screen if all questions used
+  // Update the startNewRound function
   const startNewRound = async () => {
     // Wait for questions to load if they haven't yet
     if (!loadedQuestions) {
       console.log("Waiting for questions to load...");
       setTimeout(startNewRound, 500);
-      return;
-    }
-
-    // Check if we've used all questions and should go to the test screen
-    if (usedQuestionIndices.length >= allQuestions.length) {
-      console.log("All questions used, redirecting to test screen");
-      router.push("/break");
       return;
     }
 
@@ -823,7 +829,7 @@ Do not provide any evaluation of student work or suggestions for improvement.`,
     setUserHasScrolled(false);
 
     try {
-      // Find an unused question
+      // Get a random question from the loaded questions
       let newIndex = currentQuestionIndex;
       while (
         usedQuestionIndices.includes(newIndex) &&
@@ -838,73 +844,71 @@ Do not provide any evaluation of student work or suggestions for improvement.`,
       const selectedQuestion = allQuestions[newIndex];
       setCurrentQuestion(selectedQuestion);
 
-      // Add initial messages
-      const messageId1 = getUniqueMessageId();
-      const messageId2 = getUniqueMessageId();
-
-      setMessages([
-        {
-          id: messageId1,
-          sender: "ai",
-          text: "Let's work on this new problem together. I'll help you understand the concepts.",
-          agentId: "logic",
-        },
-        {
-          id: messageId2,
-          sender: "ai",
-          text: "I'm excited to explore different approaches to this problem. Let me know if you want to discuss patterns or visualizations.",
-          agentId: "pattern",
-        },
-      ]);
-
-      setTypingMessageIds([messageId1, messageId2]);
-
       // Reset timer and enable questioning
       setTimeLeft(timerDuration);
       setIsQuestioningEnabled(true);
       roundEndedRef.current = false;
     } catch (error) {
       console.error("Error starting new round:", error);
-
-      // Use a fallback question
-      const fallbackQuestion =
-        "In how many ways can 5 distinct books be distributed to 3 distinct students such that each student gets at least one book?";
-
-      setCurrentQuestion(fallbackQuestion);
-
-      setMessages([
-        {
-          id: 1,
-          sender: "ai",
-          text: "There was an issue loading questions from the server, but I have a combinatorics problem for us to work on.",
-          agentId: "logic",
-        },
-        {
-          id: 2,
-          sender: "ai",
-          text: fallbackQuestion,
-          agentId: "logic",
-        },
-      ]);
-
-      // Continue with the fallback question
+      // Use fallback question
+      setCurrentQuestion(
+        "What are the most important things students should learn in school?"
+      );
       setTimeLeft(timerDuration);
       setIsQuestioningEnabled(true);
       roundEndedRef.current = false;
     }
   };
 
-  // Initialize with first question once questions are loaded
+  // Update the useEffect for loading questions
   useEffect(() => {
     if (loadedQuestions) {
+      // Get a random creative prompt for the first round
+      const creativePrompts = Object.keys(creativeTopics);
+      const randomCreativePrompt =
+        creativePrompts[Math.floor(Math.random() * creativePrompts.length)];
+
+      // Set the prompt and corresponding agents
+      setCurrentPrompt(randomCreativePrompt);
+      setCurrentPromptType("creative");
+      const initialAgents = getAgentsForPrompt(
+        randomCreativePrompt,
+        "creative"
+      );
+      setAgents(initialAgents);
+
+      // Start the first round with the selected prompt
       startNewRound();
     }
   }, [loadedQuestions]);
 
-  // Handle next question button
+  // Modify the handleNextQuestion function
   const handleNextQuestion = () => {
-    setEvaluationComplete(false);
-    startNewRound();
+    if (currentRound === 0) {
+      // Move to second round with argumentative prompt
+      const argumentativePrompts = Object.keys(argumentativeTopics);
+      const randomArgumentativePrompt =
+        argumentativePrompts[
+          Math.floor(Math.random() * argumentativePrompts.length)
+        ];
+
+      setCurrentPrompt(randomArgumentativePrompt);
+      setCurrentPromptType("argumentative");
+      setAgents(getAgentsForPrompt(randomArgumentativePrompt, "argumentative"));
+      setCurrentRound(1);
+      setTimeLeft(timerDuration);
+      setFinalAnswer("");
+      setScratchboardContent("");
+      setMessages([]);
+      setCompletedMessageIds([]);
+      setTypingMessageIds([]);
+      setIsQuestioningEnabled(true);
+      setEvaluationComplete(false);
+    } else if (currentRound === 1) {
+      // Move to break screen
+      setCurrentRound(2);
+      router.push("/break");
+    }
   };
 
   // Add this helper function to count words
@@ -1198,7 +1202,7 @@ Do not provide any evaluation of student work or suggestions for improvement.`,
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about the problem (mention Logic Bot or Pattern Bot specifically if needed)..."
+                  placeholder="Converse with your peers..."
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   disabled={isFeedbackInProgress}
                   onKeyDown={(e) => {

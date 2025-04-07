@@ -7,8 +7,8 @@ import TypewriterText from "@/components/TypewriterText";
 import { aiService, AI_MODELS } from "@/services/AI";
 import { Message } from "@/utils/types";
 import TypewriterTextWrapper from "@/components/TypewriterTextWrapper";
-import { creativeTopics } from '@/data/creative';
-import { argumentativeTopics } from '@/data/argumentative';
+import { creativeTopics } from "@/data/creative";
+import { argumentativeTopics } from "@/data/argumentative";
 
 export default function SinglePage() {
   const router = useRouter();
@@ -43,28 +43,38 @@ export default function SinglePage() {
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
 
   // Add new state for tracking question types
-  const [currentQuestionType, setCurrentQuestionType] = useState<'creative' | 'argumentative'>('creative');
+  const [currentQuestionType, setCurrentQuestionType] = useState<
+    "creative" | "argumentative"
+  >("creative");
   const [currentTopic, setCurrentTopic] = useState<any>(null);
   const [currentAgents, setCurrentAgents] = useState<any[]>([]);
 
   // Add new state for tracking the sequence
-  const [questionSequence, setQuestionSequence] = useState<'creative' | 'argumentative' | 'break'>('creative');
+  const [questionSequence, setQuestionSequence] = useState<
+    "creative" | "argumentative" | "break"
+  >("creative");
 
   // Modify the fetchQuestions function
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
         // Use the current sequence to determine which topic type to load
-        const topics = questionSequence === 'creative' ? creativeTopics : argumentativeTopics;
+        const topics =
+          questionSequence === "creative"
+            ? creativeTopics
+            : argumentativeTopics;
         const topicKeys = Object.keys(topics) as (keyof typeof topics)[];
-        const randomTopicKey = topicKeys[Math.floor(Math.random() * topicKeys.length)];
+        const randomTopicKey =
+          topicKeys[Math.floor(Math.random() * topicKeys.length)];
         const selectedTopic = topics[randomTopicKey];
-        
+
         // Randomly select an agent from the topic's agents
-        const agents = selectedTopic;
+        const agents = selectedTopic as any[];
         const randomAgent = agents[Math.floor(Math.random() * agents.length)];
-        
-        setCurrentQuestionType(questionSequence);
+
+        setCurrentQuestionType(
+          questionSequence === "break" ? "creative" : questionSequence
+        );
         setCurrentTopic(randomTopicKey);
         setCurrentAgents([randomAgent]);
         setLoadedQuestions(true);
@@ -74,14 +84,20 @@ export default function SinglePage() {
       } catch (error) {
         console.error("Error loading questions:", error);
         // Use fallback question and agent
-        setCurrentAgents([{
-          id: "bob",
-          name: "Bob",
-          avatar: "bob_avatar.svg",
-          systemPrompt: `You are Bob, an experienced and encouraging teacher. Guide discussions with helpful insights and Socratic questioning.`,
-        }]);
-        setCurrentTopic("In how many ways can four couples be seated at a round table if the men and women want to sit alternately?");
-        setCurrentQuestion("In how many ways can four couples be seated at a round table if the men and women want to sit alternately?");
+        setCurrentAgents([
+          {
+            id: "bob",
+            name: "Bob",
+            avatar: "bob_avatar.svg",
+            systemPrompt: `You are Bob, an experienced and encouraging teacher. Guide discussions with helpful insights and Socratic questioning.`,
+          },
+        ]);
+        setCurrentTopic(
+          "In how many ways can four couples be seated at a round table if the men and women want to sit alternately?"
+        );
+        setCurrentQuestion(
+          "In how many ways can four couples be seated at a round table if the men and women want to sit alternately?"
+        );
         setLoadedQuestions(true);
       }
     };
@@ -421,7 +437,7 @@ Format your response in a clear, encouraging way as a teacher would.`,
     try {
       // Use the current topic as the question
       setCurrentQuestion(currentTopic);
-      
+
       // Create a message object using the selected agent
       const selectedAgent = currentAgents[0];
       const bobIntroId = getUniqueMessageId();
@@ -494,12 +510,12 @@ Format your response in a clear, encouraging way as a teacher would.`,
     roundEndedRef.current = false;
 
     // Update the sequence
-    if (questionSequence === 'creative') {
-      setQuestionSequence('argumentative');
-    } else if (questionSequence === 'argumentative') {
-      setQuestionSequence('break');
+    if (questionSequence === "creative") {
+      setQuestionSequence("argumentative");
+    } else if (questionSequence === "argumentative") {
+      setQuestionSequence("break");
       // Navigate to break screen
-      router.push('/break');
+      router.push("/break");
     }
   };
 
@@ -765,7 +781,7 @@ Format your response in a clear, encouraging way as a teacher would.`,
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about the problem (mention the peer)..."
+                  placeholder="Converse with your peer"
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
