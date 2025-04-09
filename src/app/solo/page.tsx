@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useFlow } from "@/context/FlowContext";
 
 export default function SoloPage() {
   const router = useRouter();
+  const { addSoloEssay } = useFlow();
 
   // Simplified state management
   const [scratchboardContent, setScratchboardContent] = useState("");
@@ -15,6 +17,7 @@ export default function SoloPage() {
   const timerDuration = 300;
   const [timeLeft, setTimeLeft] = useState(timerDuration);
   const roundEndedRef = useRef(false);
+  const startTimeRef = useRef(Date.now());
 
   // Question tracking
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -73,7 +76,7 @@ export default function SoloPage() {
     // Modified to check for exactly 2 questions
     if (usedQuestionIndices.length >= 2) {
       console.log("Both questions completed, redirecting to break screen");
-      router.push("/break");
+      router.push("/completed");
       return;
     }
 
@@ -91,6 +94,7 @@ export default function SoloPage() {
     // Reset timer and other state
     setTimeLeft(timerDuration);
     roundEndedRef.current = false;
+    startTimeRef.current = Date.now();
   };
 
   // Initialize with first question once questions are loaded
@@ -102,6 +106,17 @@ export default function SoloPage() {
 
   // Handle next question button
   const handleNextQuestion = () => {
+    // Save current essay data before moving to next question
+    if (currentQuestion && finalAnswer) {
+      const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      addSoloEssay({
+        questionType: currentQuestionIndex === 0 ? "creative" : "argumentative",
+        question: currentQuestion,
+        essay: finalAnswer,
+        timeSpent,
+      });
+    }
+
     setEvaluationComplete(false);
     startNewRound();
   };

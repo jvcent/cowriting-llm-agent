@@ -3,6 +3,7 @@ import "./globals.css";
 
 import fontVariables from "@/styles/fonts";
 import Theme from "@/utils/themeWrapper";
+import { FlowProvider } from "@/context/FlowContext";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -16,11 +17,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${fontVariables} antialiased`}>
-          <Theme>
-            {children}
-          </Theme>
+      <body className={`${fontVariables} antialiased`}>
+        <FlowProvider>
+          <Theme>{children}</Theme>
+        </FlowProvider>
       </body>
     </html>
   );

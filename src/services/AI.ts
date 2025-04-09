@@ -9,21 +9,21 @@ export const AI_MODELS = {
     name: "Claude Haiku",
     provider: "claude",
     maxTokens: 1000,
-    temperature: 0.7,
+    temperature: 0.5,
   },
   CLAUDE_SONNET: {
     id: "claude-3-sonnet-20240229",
     name: "Claude Sonnet",
     provider: "claude",
     maxTokens: 4000,
-    temperature: 0.7,
+    temperature: 0.5,
   },
   CLAUDE_OPUS: {
     id: "claude-3-opus-20240229",
     name: "Claude Opus",
     provider: "claude",
     maxTokens: 4000,
-    temperature: 0.7,
+    temperature: 0.5,
   },
   // Add Claude 2 as a fallback
   CLAUDE_2: {
@@ -31,7 +31,7 @@ export const AI_MODELS = {
     name: "Claude 2",
     provider: "claude",
     maxTokens: 4000,
-    temperature: 0.7,
+    temperature: 0.5,
   },
 };
 

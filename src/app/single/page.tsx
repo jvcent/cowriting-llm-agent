@@ -9,11 +9,27 @@ import { Message } from "@/utils/types";
 import TypewriterTextWrapper from "@/components/TypewriterTextWrapper";
 import { creativeTopics } from "@/data/creative";
 import { argumentativeTopics } from "@/data/argumentative";
+import { useFlow } from "@/context/FlowContext";
+
+// Types
+interface Agent {
+  id: string;
+  name: string;
+  avatar: string;
+  systemPrompt: string;
+}
+
+interface TopicMap {
+  [key: string]: Agent[];
+}
 
 export default function SinglePage() {
   const router = useRouter();
+  const { addSingleEssay } = useFlow();
 
-  // State management
+  // -----------------------------
+  // STATE
+  // -----------------------------
   const [messages, setMessages] = useState<Message[]>([]);
   const [completedMessageIds, setCompletedMessageIds] = useState<number[]>([]);
   const [input, setInput] = useState("");
@@ -29,11 +45,10 @@ export default function SinglePage() {
   const [lastUserActivityTime, setLastUserActivityTime] = useState(Date.now());
 
   // Questions from JSON
-  const [allQuestions, setAllQuestions] = useState<string[]>([]);
   const [loadedQuestions, setLoadedQuestions] = useState(false);
 
   // Timer state
-  const timerDuration = 20;
+  const timerDuration = 80;
   const [timeLeft, setTimeLeft] = useState(timerDuration);
   const roundEndedRef = useRef(false);
 
@@ -42,89 +57,34 @@ export default function SinglePage() {
   const [usedQuestionIndices, setUsedQuestionIndices] = useState<number[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
 
-  // Add new state for tracking question types
+  // Question type states
   const [currentQuestionType, setCurrentQuestionType] = useState<
     "creative" | "argumentative"
   >("creative");
   const [currentTopic, setCurrentTopic] = useState<any>(null);
   const [currentAgents, setCurrentAgents] = useState<any[]>([]);
-
-  // Add new state for tracking the sequence
   const [questionSequence, setQuestionSequence] = useState<
     "creative" | "argumentative" | "break"
   >("creative");
 
-  // Modify the fetchQuestions function
-  useEffect(() => {
-    const fetchQuestions = async () => {
-      try {
-        // Use the current sequence to determine which topic type to load
-        const topics =
-          questionSequence === "creative"
-            ? creativeTopics
-            : argumentativeTopics;
-        const topicKeys = Object.keys(topics) as (keyof typeof topics)[];
-        const randomTopicKey =
-          topicKeys[Math.floor(Math.random() * topicKeys.length)];
-        const selectedTopic = topics[randomTopicKey];
+  // Track which bot spoke last
+  const [lastSpeakingBot, setLastSpeakingBot] = useState<string | null>(null);
 
-        // Randomly select an agent from the topic's agents
-        const agents = selectedTopic as any[];
-        const randomAgent = agents[Math.floor(Math.random() * agents.length)];
-
-        setCurrentQuestionType(
-          questionSequence === "break" ? "creative" : questionSequence
-        );
-        setCurrentTopic(randomTopicKey);
-        setCurrentAgents([randomAgent]);
-        setLoadedQuestions(true);
-
-        // Update the current question immediately
-        setCurrentQuestion(randomTopicKey);
-      } catch (error) {
-        console.error("Error loading questions:", error);
-        // Use fallback question and agent
-        setCurrentAgents([
-          {
-            id: "bob",
-            name: "Bob",
-            avatar: "bob_avatar.svg",
-            systemPrompt: `You are Bob, an experienced and encouraging teacher. Guide discussions with helpful insights and Socratic questioning.`,
-          },
-        ]);
-        setCurrentTopic(
-          "In how many ways can four couples be seated at a round table if the men and women want to sit alternately?"
-        );
-        setCurrentQuestion(
-          "In how many ways can four couples be seated at a round table if the men and women want to sit alternately?"
-        );
-        setLoadedQuestions(true);
-      }
-    };
-
-    fetchQuestions();
-  }, [questionSequence]);
-
-  // Add this at the top of your component with other state declarations
-  const nextMessageIdRef = useRef(3); // Start at 3 to match your initial state
-
-  // Replace your existing getUniqueMessageId function with this:
+  // ID management
+  const nextMessageIdRef = useRef(3);
   const getUniqueMessageId = () => {
     const id = nextMessageIdRef.current;
     nextMessageIdRef.current += 1;
-
-    // Keep the state in sync for display purposes only (not for generating IDs)
+    // Keep the state in sync for display (optional)
     setNextMessageId(nextMessageIdRef.current);
-
     return id;
   };
 
-  // Add this helper function to use throughout your code
+  // Utility
   const ensureNoTypingInProgress = (callback: () => void, maxDelay = 10000) => {
     const startTime = Date.now();
 
     const tryCallback = () => {
-      // Safety timeout to prevent infinite waiting
       if (Date.now() - startTime > maxDelay) {
         console.warn(
           "Timeout waiting for typing to complete, proceeding anyway"
@@ -134,68 +94,45 @@ export default function SinglePage() {
       }
 
       if (typingMessageIds.length > 0) {
-        console.log(
-          `Messages still typing: ${typingMessageIds.join(
-            ", "
-          )}, delaying action`
-        );
         setTimeout(tryCallback, 800);
         return;
       }
-
-      // No typing in progress, safe to proceed
-      console.log("No typing in progress, proceeding with action");
       callback();
     };
-
     tryCallback();
   };
 
-  // Add a new ref to track manual scroll state for the current message
+  // Scroll management
   const currentMessageScrollOverrideRef = useRef(false);
-
-  // Add a ref to track the last manual scroll time
   const lastManualScrollTimeRef = useRef(0);
-
-  // Add a ref to track if we should force scroll on next render
   const forceScrollToBottomRef = useRef(false);
-
-  // Add a ref to specifically track manual scroll override during generation
   const manualScrollOverrideRef = useRef(false);
 
-  // Improve the scrollToBottom function to respect manual override
   const scrollToBottom = (force = false) => {
     const chatContainer = chatContainerRef.current;
     if (!chatContainer) return;
 
-    // Never scroll if manual override is active, except for forced user messages
+    // Don't autoscroll if the user manually scrolled away, unless forced
     if (manualScrollOverrideRef.current && !force) {
       return;
     }
 
-    // Always scroll if force is true (used for user messages) or auto-scroll is active
     if (force || forceScrollToBottomRef.current || !userHasScrolled) {
       chatContainer.scrollTop = chatContainer.scrollHeight;
-      // Reset force flag after using it
       forceScrollToBottomRef.current = false;
     }
   };
 
-  // Update the scroll handler to immediately set manual override
   const handleScroll = () => {
     const chatContainer = chatContainerRef.current;
     if (!chatContainer) return;
 
-    // Check if this is a programmatic scroll (very recent auto-scroll)
     const isProgrammaticScroll =
       Date.now() - lastManualScrollTimeRef.current < 50;
-
     if (isProgrammaticScroll) {
-      // Ignore programmatic scrolls
       return;
     }
 
-    // More generous threshold - user only needs to scroll a small amount
     const isNearBottom =
       Math.abs(
         chatContainer.scrollHeight -
@@ -203,65 +140,44 @@ export default function SinglePage() {
           chatContainer.clientHeight
       ) < 150;
 
-    // If user scrolls up even slightly, set manual override
     if (!isNearBottom) {
-      // Update regular scroll state
       setUserHasScrolled(true);
-
-      // Set manual override that persists during generation
       manualScrollOverrideRef.current = true;
-
-      console.log("Manual scroll detected - autoscroll disabled");
     } else {
-      // If user scrolls back to bottom, they want to follow the conversation again
       setUserHasScrolled(false);
       manualScrollOverrideRef.current = false;
     }
   };
 
-  // Update the message change effect to reset manual override only for new messages
   useEffect(() => {
-    // Only reset manual override if the new message is from user
-    // This way, generated text won't reset the override
     const latestMessage = messages[messages.length - 1];
     if (latestMessage && latestMessage.sender === "user") {
-      // User sent a new message, reset the override
       manualScrollOverrideRef.current = false;
-
-      // Record the time of auto-scroll to avoid false detection
-      const scrollTime = Date.now();
-      lastManualScrollTimeRef.current = scrollTime;
-
-      // Force scroll to bottom for user messages
+      lastManualScrollTimeRef.current = Date.now();
       setTimeout(() => {
         scrollToBottom(true);
       }, 50);
     }
   }, [messages.length]);
 
-  // Helper for formatting time
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  // Update checkForBotMention to only check for Bob
   const checkForBotMention = (message: string) => {
-    return "bob"; // Always return bob since he's the only agent
+    // Hard-coded for "bob"
+    return "bob";
   };
 
-  // Update AI response generation to only use Bob
   const generateAIResponse = async (userMessage: string) => {
     if (roundEndedRef.current) return;
-
-    const selectedAgent = currentAgents[0]; // Use the randomly selected agent
-
-    console.log(`Generating response from ${selectedAgent.name}`);
+    const selectedAgent = currentAgents[0];
     setBotThinking(true);
 
     try {
-      // Show typing indicator temporarily
+      // Show temp "typing"
       const tempMessageId = getUniqueMessageId();
       setMessages((prev) => [
         ...prev,
@@ -274,22 +190,21 @@ export default function SinglePage() {
         },
       ]);
 
-      // Generate AI response using the correct API call
+      // Generate AI response using full message history
       const response = await aiService.generateResponse(
-        [
-          {
-            id: 1,
-            sender: "user",
-            text: userMessage,
-          },
-        ],
+        messages.concat({
+          id: nextMessageId,
+          sender: "user",
+          text: userMessage,
+          timestamp: new Date().toISOString(),
+        }),
         {
           systemPrompt: selectedAgent.systemPrompt,
           model: currentModel,
         }
       );
 
-      // Replace typing indicator with actual message
+      // Replace the placeholder with actual text
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === tempMessageId
@@ -302,7 +217,6 @@ export default function SinglePage() {
         )
       );
 
-      // Add to typing state
       setTypingMessageIds((prev) => [...prev, tempMessageId]);
     } catch (error) {
       console.error("Error generating AI response:", error);
@@ -312,11 +226,8 @@ export default function SinglePage() {
     }
   };
 
-  // Simplify handleUserQuestion to only call generateAIResponse without bot mention check
   const handleUserQuestion = () => {
     if (!input.trim() || typingMessageIds.length > 0) return;
-
-    // Record user activity
     setLastUserActivityTime(Date.now());
 
     const userMessage: Message = {
@@ -328,270 +239,150 @@ export default function SinglePage() {
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
-
-    // Force scroll to bottom when user sends a message
     forceScrollToBottomRef.current = true;
     setTimeout(() => scrollToBottom(true), 50);
 
-    // Generate Bob's response (no need to check which bot was mentioned)
     generateAIResponse(userMessage.text || "");
   };
 
-  // Update the evaluation to only include Bob's assessment
-  const generateEvaluation = async (finalAnswer: string, question: string) => {
-    console.log("Generating evaluation");
-    setBotThinking(true);
-
+  // Loading questions
+  const fetchQuestions = async () => {
     try {
-      // Add Bob's evaluation message
-      const bobMessageId = getUniqueMessageId();
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: bobMessageId,
-          sender: "ai",
-          text: "...",
-          agentId: "bob",
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      const topics =
+        questionSequence === "creative" ? creativeTopics : argumentativeTopics;
+      const topicKeys = Object.keys(topics) as (keyof typeof topics)[];
+      const randomTopicKey =
+        topicKeys[Math.floor(Math.random() * topicKeys.length)];
+      const selectedTopic = topics[randomTopicKey];
 
-      // Generate Bob's evaluation of the answer
-      const response = await aiService.generateResponse(
-        [
-          {
-            id: 1,
-            sender: "user",
-            text: `Problem: ${question}
-                    
-Student's final response: ${finalAnswer}
+      const agents = selectedTopic as any[];
+      const randomAgent = agents[Math.floor(Math.random() * agents.length)];
 
-As Bob the teacher, provide:
-1. The correct solution to this problem with step-by-step explanation
-2. An evaluation of the student's answer (correct/partially correct/incorrect)
-3. Specific feedback on their approach and reasoning
-4. Key learning points from this problem
-
-Format your response in a clear, encouraging way as a teacher would.`,
-          },
-        ],
-        {
-          systemPrompt: currentAgents[0].systemPrompt,
-          model: currentModel,
-        }
+      setCurrentQuestionType(
+        questionSequence === "break" ? "creative" : questionSequence
       );
-
-      // Update Bob's evaluation message
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === bobMessageId
-            ? {
-                ...msg,
-                text: response,
-                timestamp: new Date().toISOString(),
-              }
-            : msg
-        )
-      );
-
-      // Add to typing state for typewriter effect
-      setTypingMessageIds((prev) => [...prev, bobMessageId]);
-      setEvaluationComplete(true);
+      setCurrentTopic(randomTopicKey);
+      setCurrentAgents([randomAgent]);
+      setLoadedQuestions(true);
+      setCurrentQuestion(randomTopicKey);
     } catch (error) {
-      console.error("Error generating evaluation:", error);
-      // Handle error
-    } finally {
-      setBotThinking(false);
+      console.error("Error loading questions:", error);
     }
   };
 
-  // Update startNewRound to use the current topic
-  const startNewRound = async () => {
-    // Remove any bot tracking state
-    setLastSpeakingBot(null);
+  useEffect(() => {
+    fetchQuestions();
+  }, [questionSequence]);
 
-    // Wait for questions to load if they haven't yet
-    if (!loadedQuestions) {
-      console.log("Waiting for questions to load...");
-      setTimeout(startNewRound, 500);
-      return;
+  // Add start time tracking
+  const startTimeRef = useRef(Date.now());
+
+  // Move to next question or to "break" route
+  const handleNextQuestion = () => {
+    // Save current essay data before moving to next
+    if (currentQuestion && finalAnswer) {
+      const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      addSingleEssay({
+        questionType: currentQuestionType,
+        question: currentQuestion,
+        essay: finalAnswer,
+        chatLog: messages,
+        timeSpent,
+      });
     }
 
-    // Check if we've used 2 questions and should go to the test screen
-    if (usedQuestionIndices.length >= 2) {
-      console.log("2 questions completed, redirecting to break screen");
-      router.push("/break");
-      return;
+    if (currentQuestionType === "creative") {
+      setCurrentQuestionType("argumentative");
+      startTimeRef.current = Date.now(); // Reset start time
+      startNewRound("argumentative");
+    } else {
+      router.push("/completed");
     }
+  };
 
-    // Reset state for new round
-    console.log("Starting new round");
+  // Update startNewRound to reset start time
+  const startNewRound = async (overrideSet?: "creative" | "argumentative") => {
+    // Reset start time when starting new round
+    startTimeRef.current = Date.now();
+
+    // Reset idle tracking
+    setLastWritingTime(Date.now());
+    setHasGivenStarterFeedback(false);
+
+    // Create a new session concurrency so partial responses won't overlap
+    setFeedbackSessionId((prev) => prev + 1);
+
+    // Reset chat states
     setMessages([]);
     setCompletedMessageIds([]);
     setTypingMessageIds([]);
-    setEvaluationComplete(false);
+    setScratchboardContent("");
     setInput("");
     setFinalAnswer("");
+    setEvaluationComplete(false);
     setUserHasScrolled(false);
+    roundEndedRef.current = false;
+    setTimeLeft(timerDuration);
+
+    // Decide which set we'll use (creative vs argumentative)
+    const chosenSet = overrideSet ?? currentQuestionType;
+    let topics: TopicMap =
+      chosenSet === "creative" ? creativeTopics : argumentativeTopics;
 
     try {
-      // Use the current topic as the question
-      setCurrentQuestion(currentTopic);
+      // Pick a random question (key in the object)
+      const keys = Object.keys(topics);
+      const randomKey = keys[Math.floor(Math.random() * keys.length)];
+      const selectedTopic = topics[randomKey];
+      setCurrentQuestion(randomKey);
+      setCurrentAgents(selectedTopic);
 
-      // Create a message object using the selected agent
-      const selectedAgent = currentAgents[0];
-      const bobIntroId = getUniqueMessageId();
-      const bobIntroMessage = {
-        id: bobIntroId,
-        sender: "ai",
-        text: `Today we'll be discussing: ${currentTopic}\n\nConsider your perspective and feel free to share your thoughts.`,
-        agentId: selectedAgent.id,
-        timestamp: new Date().toISOString(),
-      };
+      // Just send one introductory message from the first agent
+      if (selectedTopic.length > 0) {
+        const mainAgent = selectedTopic[0];
+        await postStaticMessageSequentially(
+          mainAgent,
+          `Let's work on this ${chosenSet} writing task together. I'm here to help you develop your ideas and explore different perspectives.`
+        );
+      }
 
-      setMessages([bobIntroMessage]);
-      setTypingMessageIds((prev) => [...prev, bobIntroId]);
-
-      // Reset timer and other state
-      setTimeLeft(timerDuration);
       setIsQuestioningEnabled(true);
-      roundEndedRef.current = false;
-    } catch (error) {
-      console.error("Error starting new round:", error);
-
-      // Use a fallback question
-      const fallbackQuestion =
-        "In how many ways can 5 distinct books be distributed to 3 distinct students such that each student gets at least one book?";
-
-      setCurrentQuestion(fallbackQuestion);
-
-      setMessages([
-        {
-          id: 1,
-          sender: "ai",
-          text: "Let's work on this combinatorics problem today.",
-          agentId: "bob",
-        },
-        {
-          id: 2,
-          sender: "ai",
-          text: fallbackQuestion,
-          agentId: "bob",
-        },
-      ]);
-
-      // Continue with the fallback question
-      setTimeLeft(timerDuration);
-      setIsQuestioningEnabled(true);
-      roundEndedRef.current = false;
+    } catch (err) {
+      console.error("Error starting round:", err);
     }
   };
 
-  // Initialize with first question once questions are loaded
   useEffect(() => {
     if (loadedQuestions) {
       startNewRound();
     }
   }, [loadedQuestions]);
 
-  // Modify the handleNextQuestion function
-  const handleNextQuestion = () => {
-    // Reset states for the next question
-    setMessages([]);
-    setCompletedMessageIds([]);
-    setInput("");
-    setFinalAnswer("");
-    setTypingMessageIds([]);
-    setIsQuestioningEnabled(true);
-    setEvaluationComplete(false);
-    setBotThinking(false);
-    setUserHasScrolled(false);
-    setTimeLeft(timerDuration);
-    roundEndedRef.current = false;
-
-    // Update the sequence
-    if (questionSequence === "creative") {
-      setQuestionSequence("argumentative");
-    } else if (questionSequence === "argumentative") {
-      setQuestionSequence("break");
-      // Navigate to break screen
-      router.push("/break");
+  const autoSubmitTimeoutAnswer = () => {
+    if (isQuestioningEnabled) {
+      // Only do this if round hasn't already ended
+      setIsQuestioningEnabled(false);
+      roundEndedRef.current = true;
+      setEvaluationComplete(true);
     }
   };
 
-  // Add a new state to track which bot spoke last
-  const [lastSpeakingBot, setLastSpeakingBot] = useState<string | null>(null);
-
-  // Add the autoSubmitTimeoutAnswer function for the timer
-  const autoSubmitTimeoutAnswer = () => {
-    console.log("Auto-submitting answer due to timeout");
-
-    // Disable further questioning
-    setIsQuestioningEnabled(false);
-    roundEndedRef.current = true;
-
-    // Only auto-submit if user has written something in the scratchboard
-    const submissionText = finalAnswer.trim() || "No answer.";
-
-    ensureNoTypingInProgress(() => {
-      const userFinalAnswer: Message = {
-        id: getUniqueMessageId(),
-        sender: "user",
-        text: `My final answer is: ${submissionText}\n\n`,
-        timestamp: new Date().toISOString(),
-      };
-
-      setMessages((prev) => [...prev, userFinalAnswer]);
-      setFinalAnswer("");
-
-      // Generate evaluation
-      generateEvaluation(userFinalAnswer.text || "", currentQuestion);
-    });
-  };
-
-  // Add the handleSend function for the submit button
   const handleSend = () => {
     if (!finalAnswer.trim() || typingMessageIds.length > 0) return;
-
-    // Record user activity
     setLastUserActivityTime(Date.now());
-
-    ensureNoTypingInProgress(() => {
-      const userFinalAnswer: Message = {
-        id: getUniqueMessageId(),
-        sender: "user",
-        text: `My final response is: ${finalAnswer}\n\n`,
-        timestamp: new Date().toISOString(),
-      };
-
-      setMessages((prev) => [...prev, userFinalAnswer]);
-      setFinalAnswer("");
-
-      // Force scroll to bottom when user submits final answer
-      forceScrollToBottomRef.current = true;
-      setTimeout(() => scrollToBottom(true), 50);
-
-      // Don't clear scratchboard to allow review
-      // Disable further questioning
-      setIsQuestioningEnabled(false);
-      roundEndedRef.current = true;
-
-      // Generate evaluation
-      generateEvaluation(userFinalAnswer.text || "", currentQuestion);
-    });
+    setIsQuestioningEnabled(false);
+    roundEndedRef.current = true;
+    setEvaluationComplete(true);
   };
 
-  // Add the timer useEffect
+  // Timer to track the user's overall time per question
   useEffect(() => {
     if (timeLeft <= 0) {
-      // Time's up logic
       if (isQuestioningEnabled) {
-        // Only auto-submit if questioning is still enabled (hasn't been submitted yet)
         autoSubmitTimeoutAnswer();
       }
       return;
     }
-
     if (roundEndedRef.current) {
       return;
     }
@@ -601,20 +392,225 @@ Format your response in a clear, encouraging way as a teacher would.`,
     }, 1000);
 
     return () => clearTimeout(timerId);
-  }, [timeLeft]);
+  }, [timeLeft, isQuestioningEnabled]);
 
+  // Add word count tracking
+  const [lastFeedbackWordCount, setLastFeedbackWordCount] = useState(0);
+  const WORD_COUNT_THRESHOLD = 35;
+
+  // Add word counting utility
+  const getWordCount = (text: string) => {
+    return text
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length;
+  };
+
+  // Add idle time tracking
+  const [lastWritingTime, setLastWritingTime] = useState<number>(Date.now());
+  const [hasGivenStarterFeedback, setHasGivenStarterFeedback] = useState(false);
+  const IDLE_THRESHOLD = 60000; // 1 minute in milliseconds
+
+  // Check for idle time and low word count
+  useEffect(() => {
+    if (roundEndedRef.current || hasGivenStarterFeedback) return;
+
+    const checkIdleInterval = setInterval(() => {
+      const currentTime = Date.now();
+      const currentWordCount = getWordCount(finalAnswer);
+
+      if (
+        currentWordCount < WORD_COUNT_THRESHOLD &&
+        currentTime - lastWritingTime >= IDLE_THRESHOLD
+      ) {
+        triggerStarterFeedback();
+        setHasGivenStarterFeedback(true);
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(checkIdleInterval);
+  }, [lastWritingTime, finalAnswer, hasGivenStarterFeedback]);
+
+  const triggerStarterFeedback = async () => {
+    if (roundEndedRef.current) return;
+
+    const selectedAgent = currentAgents[0];
+    const messageId = getUniqueMessageId();
+
+    // Add AI message placeholder
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: messageId,
+        sender: "ai",
+        text: "...",
+        agentId: selectedAgent.id,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+
+    // Generate response without showing the prompt
+    const response = await aiService.generateResponse(
+      [
+        {
+          id: nextMessageId,
+          sender: "user",
+          text: `The user is looking at the writing prompt: "${currentQuestion}". Without mentioning that they haven't started yet, provide encouraging suggestions for how to approach this prompt and get started writing.`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+      {
+        systemPrompt: selectedAgent.systemPrompt,
+        model: currentModel,
+      }
+    );
+
+    // Update the message with the response
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId
+          ? {
+              ...msg,
+              text: response,
+              timestamp: new Date().toISOString(),
+            }
+          : msg
+      )
+    );
+
+    setTypingMessageIds((prev) => [...prev, messageId]);
+  };
+
+  const triggerAutomaticFeedback = async (text: string) => {
+    if (roundEndedRef.current) return;
+
+    const selectedAgent = currentAgents[0];
+    const messageId = getUniqueMessageId();
+
+    // Add AI message placeholder
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: messageId,
+        sender: "ai",
+        text: "...",
+        agentId: selectedAgent.id,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+
+    // Generate response without showing the prompt
+    const response = await aiService.generateResponse(
+      [
+        {
+          id: nextMessageId,
+          sender: "user",
+          text: `Please provide brief, constructive feedback on what has been written so far: "${text}"`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+      {
+        systemPrompt: selectedAgent.systemPrompt,
+        model: currentModel,
+      }
+    );
+
+    // Update the message with the response
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId
+          ? {
+              ...msg,
+              text: response,
+              timestamp: new Date().toISOString(),
+            }
+          : msg
+      )
+    );
+
+    setTypingMessageIds((prev) => [...prev, messageId]);
+  };
+
+  // -----------------------------
+  // ESSAY (WITHOUT AUTO FEEDBACK)
+  // -----------------------------
+  const handleEssayChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setFinalAnswer(newText);
+    setLastWritingTime(Date.now());
+
+    // Check word count and trigger feedback if needed
+    const currentWordCount = getWordCount(newText);
+    if (currentWordCount >= lastFeedbackWordCount + WORD_COUNT_THRESHOLD) {
+      setLastFeedbackWordCount(currentWordCount);
+      triggerAutomaticFeedback(newText);
+    }
+  };
+
+  // Add feedbackSessionId state
+  const [feedbackSessionId, setFeedbackSessionId] = useState(0);
+
+  // Add missing function
+  const postStaticMessageSequentially = async (agent: Agent, text: string) => {
+    const messageId = getUniqueMessageId();
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: messageId,
+        sender: "ai",
+        text: "...",
+        agentId: agent.id,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+
+    await new Promise((res) => setTimeout(res, 200));
+
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, text } : m))
+    );
+
+    setTypingMessageIds((prev) => [...prev, messageId]);
+    await waitForTypingToFinish(messageId);
+  };
+
+  // Chat state
+  const [scratchboardContent, setScratchboardContent] = useState("");
+  const typingMessageIdsRef = useRef<number[]>([]);
+
+  // Keep typing IDs in a ref for easy checks
+  useEffect(() => {
+    typingMessageIdsRef.current = typingMessageIds;
+  }, [typingMessageIds]);
+
+  // Helper function to wait for typing to finish
+  const waitForTypingToFinish = (messageId: number): Promise<void> => {
+    return new Promise((resolve) => {
+      const check = () => {
+        if (!typingMessageIdsRef.current.includes(messageId)) {
+          resolve();
+        } else {
+          setTimeout(check, 150);
+        }
+      };
+      check();
+    });
+  };
+
+  // -----------------------------
+  // RENDER
+  // -----------------------------
   return (
     <div className="h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-4 flex flex-row overflow-hidden">
-      {/* LEFT PANEL - Problem, Submission, Scratchboard */}
+      {/* LEFT PANEL */}
       <div className="w-1/2 pr-2 flex flex-col h-full overflow-hidden">
-        {/* Problem Display with Timer inside */}
+        {/* Problem Display + Timer */}
         {currentQuestion && (
           <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
             <div className="flex justify-between items-start mb-2">
               <h2 className="text-xl text-white font-semibold">
                 Writing Prompt:
               </h2>
-              {/* Timer integrated in problem statement */}
               <div
                 className={`p-2 rounded-lg ${
                   timeLeft > 20
@@ -638,27 +634,16 @@ Format your response in a clear, encouraging way as a teacher would.`,
           </div>
         )}
 
-        {/* Final Answer */}
+        {/* Final Answer Textarea */}
         <div className="flex flex-col bg-white bg-opacity-15 rounded-md p-4 mb-4 h-full border-2 border-blue-400 shadow-lg">
           <h3 className="text-xl text-white font-semibold mb-2">Your Essay</h3>
           <div className="flex grow flex-col space-y-3">
             <textarea
               value={finalAnswer}
-              onChange={(e) => setFinalAnswer(e.target.value)}
+              onChange={handleEssayChange}
               placeholder="Enter your response here..."
               className="w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg"
             />
-            <button
-              onClick={() => handleSend()}
-              disabled={!finalAnswer.trim() || typingMessageIds.length > 0}
-              className={`px-4 py-3 rounded-md text-lg font-medium ${
-                finalAnswer.trim() && typingMessageIds.length === 0
-                  ? "bg-blue-600 hover:bg-blue-700 text-white"
-                  : "bg-gray-700 text-gray-400 cursor-not-allowed"
-              }`}
-            >
-              Submit Essay
-            </button>
           </div>
         </div>
       </div>
@@ -666,7 +651,6 @@ Format your response in a clear, encouraging way as a teacher would.`,
       {/* RIGHT PANEL - Chat */}
       <div className="w-1/2 pl-2 flex flex-col h-full">
         <div className="flex-1 bg-white bg-opacity-10 rounded-md flex flex-col overflow-hidden">
-          {/* Update Agent info to only show Bob */}
           <div className="bg-black bg-opacity-30 p-2">
             <div className="flex space-x-3">
               <div className="flex items-center">
@@ -686,7 +670,6 @@ Format your response in a clear, encouraging way as a teacher would.`,
             </div>
           </div>
 
-          {/* Chat messages - Scrollable */}
           <div
             className="flex-1 p-4 overflow-y-auto"
             ref={chatContainerRef}
@@ -744,19 +727,12 @@ Format your response in a clear, encouraging way as a teacher would.`,
                         }
                       }}
                       onTypingComplete={() => {
-                        console.log(`Message ${msg.id} completed typing`);
-
                         setTimeout(() => {
                           if (typingMessageIds.includes(msg.id)) {
                             setTypingMessageIds((prev) =>
                               prev.filter((id) => id !== msg.id)
                             );
                             setCompletedMessageIds((prev) => [...prev, msg.id]);
-
-                            if (msg.onComplete) {
-                              msg.onComplete();
-                            }
-
                             if (!userHasScrolled) {
                               scrollToBottom();
                             }
@@ -773,7 +749,7 @@ Format your response in a clear, encouraging way as a teacher would.`,
             <div key="messages-end" />
           </div>
 
-          {/* Chat input (for questions only, separate from final answer) */}
+          {/* Chat input for user questions */}
           {isQuestioningEnabled && (
             <div className="p-3 bg-black bg-opacity-30">
               <div className="flex space-x-2">
@@ -781,7 +757,7 @@ Format your response in a clear, encouraging way as a teacher would.`,
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Converse with your peer"
+                  placeholder="You can ask for feedback or help brainstorm at any point here"
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -805,7 +781,7 @@ Format your response in a clear, encouraging way as a teacher would.`,
             </div>
           )}
 
-          {/* Next question button (when time's up) */}
+          {/* Next question button (after time's up or submission) */}
           {!isQuestioningEnabled && evaluationComplete && (
             <div className="p-3 bg-black bg-opacity-30 flex justify-center">
               <button

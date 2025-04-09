@@ -52,8 +52,8 @@ async function testClaudeAPI() {
     }
 }
 
-const essayType = `argumentative`
-const writingTopic = "In your opinion, does technology improve or worsen romantic interactions?  "
+const essayType = `creative`
+const writingTopic = "What Are the Most Important Things Students Learn in School? "
 
 async function interactClaudeAPI() {
     try {
