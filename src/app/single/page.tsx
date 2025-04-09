@@ -48,7 +48,7 @@ export default function SinglePage() {
   const [loadedQuestions, setLoadedQuestions] = useState(false);
 
   // Timer state
-  const timerDuration = 80;
+  const timerDuration = 300;
   const [timeLeft, setTimeLeft] = useState(timerDuration);
   const roundEndedRef = useRef(false);
 
