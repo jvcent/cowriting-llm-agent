@@ -135,8 +135,8 @@ export default function CompletedPage() {
               {/* Question 3 */}
               <div>
                 <label className="block mb-2">
-                  The inputs I saw prompted me to consider ideas I wouldn't have
-                  generated on my own.
+                  The inputs I saw prompted me to consider ideas I wouldn&apos;t
+                  have generated on my own.
                 </label>
                 <select
                   name="ideaPrompting"
