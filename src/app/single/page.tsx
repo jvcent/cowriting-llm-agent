@@ -56,7 +56,6 @@ export default function SinglePage() {
   );
 
   const startTimeRef = useRef<number>(Date.now());
-  const [lastWritingTime, setLastWritingTime] = useState<number>(Date.now());
   const [hasGivenStarterFeedback, setHasGivenStarterFeedback] = useState(false);
   const [lastFeedbackWordCount, setLastFeedbackWordCount] = useState(0);
 
@@ -65,16 +64,20 @@ export default function SinglePage() {
 
   const roundEndedRef = useRef(false);
 
-  // ID management
+  // -----------------------------
+  // ID MANAGEMENT
+  // -----------------------------
   const nextMessageIdRef = useRef(3);
-  const getUniqueMessageId = () => {
+  const getUniqueMessageId = useCallback(() => {
     const id = nextMessageIdRef.current;
     nextMessageIdRef.current += 1;
     setNextMessageId(nextMessageIdRef.current);
     return id;
-  };
+  }, []);
 
-  // Scroll management
+  // -----------------------------
+  // SCROLL MANAGEMENT
+  // -----------------------------
   const lastManualScrollTimeRef = useRef(0);
   const forceScrollToBottomRef = useRef(false);
   const manualScrollOverrideRef = useRef(false);
@@ -102,6 +105,9 @@ export default function SinglePage() {
     manualScrollOverrideRef.current = !nearBottom;
   };
 
+  // -----------------------------
+  // UTILS
+  // -----------------------------
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
@@ -114,12 +120,44 @@ export default function SinglePage() {
       .split(/\s+/)
       .filter((w) => w).length;
 
+  // -----------------------------
+  // STATIC BOT MESSAGE
+  // -----------------------------
+  const postStaticMessageSequentially = useCallback(
+    async (agent: Agent, text: string) => {
+      const tempId = getUniqueMessageId();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: tempId,
+          sender: "ai",
+          text: "...",
+          agentId: agent.id,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+
+      // Mark typing, then immediately replace with final text
+      setTypingMessageIds((prev) => [...prev, tempId]);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId
+            ? { ...m, text, timestamp: new Date().toISOString() }
+            : m
+        )
+      );
+    },
+    [getUniqueMessageId]
+  );
+
+  // -----------------------------
+  // CALLBACKS
+  // -----------------------------
   const autoSubmitTimeoutAnswer = useCallback(() => {
     roundEndedRef.current = true;
     setIsQuestioningEnabled(false);
     setEvaluationComplete(true);
 
-    // Post user's final answer as a message (so the bots can see it if needed)
     if (finalAnswer.trim()) {
       const userMsg: Message = {
         id: getUniqueMessageId(),
@@ -136,13 +174,18 @@ export default function SinglePage() {
     if (roundEndedRef.current || hasGivenStarterFeedback) return;
     setHasGivenStarterFeedback(true);
     const agent = currentAgents[0];
+    if (!agent) return;
+
     await postStaticMessageSequentially(
       agent,
       "I notice you've been writing for a while. Would you like some feedback on your progress so far?"
     );
-  }, [currentAgents, hasGivenStarterFeedback]);
+  }, [currentAgents, hasGivenStarterFeedback, postStaticMessageSequentially]);
 
-  // Keep user auto-scrolled on new user message
+  // -----------------------------
+  // EFFECTS
+  // -----------------------------
+  // Keep user auto‑scrolled on new user message
   useEffect(() => {
     const latest = messages[messages.length - 1];
     if (latest?.sender === "user") {
@@ -152,6 +195,36 @@ export default function SinglePage() {
     }
   }, [messages, scrollToBottom]);
 
+  // Load a random question + agent
+  const fetchQuestions = useCallback(async () => {
+    try {
+      const topics: TopicMap =
+        questionSequence === "creative" ? creativeTopics : argumentativeTopics;
+      const keys = Object.keys(topics);
+      const rk = keys[Math.floor(Math.random() * keys.length)];
+      const agentsList = topics[rk];
+      const agent = agentsList[Math.floor(Math.random() * agentsList.length)];
+
+      setCurrentQuestionType(
+        questionSequence === "break"
+          ? "creative"
+          : (questionSequence as "creative" | "argumentative")
+      );
+      setCurrentAgents([agent]);
+      setCurrentQuestion(rk);
+      setLoadedQuestions(true);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [questionSequence]);
+
+  useEffect(() => {
+    fetchQuestions();
+  }, [fetchQuestions]);
+
+  // -----------------------------
+  // AI RESPONSE
+  // -----------------------------
   const generateAIResponse = async (userMessage: string) => {
     if (roundEndedRef.current) return;
     const agent = currentAgents[0];
@@ -182,6 +255,7 @@ export default function SinglePage() {
         ],
         { systemPrompt: agent.systemPrompt, model: currentModel }
       );
+
       setMessages((prev) =>
         prev.map((m) =>
           m.id === tempId
@@ -198,13 +272,10 @@ export default function SinglePage() {
     }
   };
 
-  // ←─── HERE'S THE FIX ────→
   const handleUserQuestion = () => {
     if (!input.trim() || typingMessageIds.length) return;
 
-    // pull input into a guaranteed string
     const userText = input.trim();
-
     setLastUserActivityTime(Date.now());
 
     const msg: Message = {
@@ -219,93 +290,54 @@ export default function SinglePage() {
     forceScrollToBottomRef.current = true;
     setTimeout(() => scrollToBottom(true), 50);
 
-    // now pass a string with no possibility of undefined
     generateAIResponse(userText);
   };
 
-  const fetchQuestions = useCallback(async () => {
-    try {
-      const topics: TopicMap =
-        questionSequence === "creative" ? creativeTopics : argumentativeTopics;
-      const keys = Object.keys(topics);
-      const rk = keys[Math.floor(Math.random() * keys.length)];
-      const agentsList = topics[rk];
-      const agent = agentsList[Math.floor(Math.random() * agentsList.length)];
-      setCurrentQuestionType(
-        questionSequence === "break"
-          ? "creative"
-          : (questionSequence as "creative" | "argumentative")
-      );
-      setCurrentAgents([agent]);
-      setCurrentQuestion(rk);
-      setLoadedQuestions(true);
-    } catch (err) {
-      console.error(err);
-    }
-  }, [questionSequence]);
-
-  useEffect(() => {
-    fetchQuestions();
-  }, [fetchQuestions]);
-
-  const handleNextQuestion = () => {
-    if (currentQuestion && finalAnswer) {
-      const spent = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      addSingleEssay({
-        questionType: currentQuestionType,
-        question: currentQuestion,
-        essay: finalAnswer,
-        chatLog: messages,
-        timeSpent: spent,
-      });
-    }
-    if (currentQuestionType === "creative") {
-      setCurrentQuestionType("argumentative");
+  // -----------------------------
+  // ROUND MANAGEMENT
+  // -----------------------------
+  const startNewRound = useCallback(
+    async (overrideType?: "creative" | "argumentative") => {
       startTimeRef.current = Date.now();
-      startNewRound("argumentative");
-    } else {
-      router.push("/completed");
-    }
-  };
+      setLastUserActivityTime(Date.now());
+      setHasGivenStarterFeedback(false);
+      setFeedbackSessionId((p) => p + 1);
+      setMessages([]);
+      setCompletedMessageIds([]);
+      setTypingMessageIds([]);
+      setScratchboardContent("");
+      setInput("");
+      setFinalAnswer("");
+      setEvaluationComplete(false);
+      setUserHasScrolled(false);
+      roundEndedRef.current = false;
+      setTimeLeft(300);
 
-  const startNewRound = async (overrideType?: "creative" | "argumentative") => {
-    startTimeRef.current = Date.now();
-    setLastUserActivityTime(Date.now());
-    setHasGivenStarterFeedback(false);
-    setFeedbackSessionId((p) => p + 1);
-    setMessages([]);
-    setCompletedMessageIds([]);
-    setTypingMessageIds([]);
-    setScratchboardContent("");
-    setInput("");
-    setFinalAnswer("");
-    setEvaluationComplete(false);
-    setUserHasScrolled(false);
-    roundEndedRef.current = false;
-    setTimeLeft(300);
+      const chosen = overrideType ?? currentQuestionType;
+      const topics: TopicMap =
+        chosen === "creative" ? creativeTopics : argumentativeTopics;
 
-    const chosen = overrideType ?? currentQuestionType;
-    const topics: TopicMap =
-      chosen === "creative" ? creativeTopics : argumentativeTopics;
+      try {
+        const keys = Object.keys(topics);
+        const rk = keys[Math.floor(Math.random() * keys.length)];
+        const agentsList = topics[rk];
 
-    try {
-      const keys = Object.keys(topics);
-      const rk = keys[Math.floor(Math.random() * keys.length)];
-      const agentsList = topics[rk];
-      setCurrentQuestion(rk);
-      setCurrentAgents(agentsList);
+        setCurrentQuestion(rk);
+        setCurrentAgents(agentsList);
 
-      if (agentsList.length) {
-        await postStaticMessageSequentially(
-          agentsList[0],
-          `Let's work on this ${chosen} writing task together. I'm here to help you develop your ideas and explore different perspectives.`
-        );
+        if (agentsList.length) {
+          await postStaticMessageSequentially(
+            agentsList[0],
+            `Let's work on this ${chosen} writing task together. I'm here to help you develop your ideas and explore different perspectives.`
+          );
+        }
+        setIsQuestioningEnabled(true);
+      } catch (err) {
+        console.error(err);
       }
-      setIsQuestioningEnabled(true);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+    },
+    [currentQuestionType, postStaticMessageSequentially]
+  );
 
   useEffect(() => {
     if (loadedQuestions) startNewRound();
@@ -328,16 +360,20 @@ export default function SinglePage() {
     return () => clearTimeout(t);
   }, [timeLeft, isQuestioningEnabled, autoSubmitTimeoutAnswer]);
 
-  // Starter feedback on idle
+  // Starter feedback on idle (simple heuristic)
   useEffect(() => {
     if (lastFeedbackWordCount > 0 && !hasGivenStarterFeedback) {
       triggerStarterFeedback();
     }
   }, [lastFeedbackWordCount, hasGivenStarterFeedback, triggerStarterFeedback]);
 
+  // -----------------------------
+  // AUTO‑FEEDBACK
+  // -----------------------------
   const triggerAutomaticFeedback = async (text: string) => {
     if (roundEndedRef.current) return;
     const agent = currentAgents[0];
+
     const msgId = getUniqueMessageId();
     setMessages((p) => [
       ...p,
@@ -349,6 +385,7 @@ export default function SinglePage() {
         timestamp: new Date().toISOString(),
       },
     ]);
+
     const resp = await aiService.generateResponse(
       [
         {
@@ -360,6 +397,7 @@ export default function SinglePage() {
       ],
       { systemPrompt: agent.systemPrompt, model: currentModel }
     );
+
     setMessages((p) =>
       p.map((m) =>
         m.id === msgId
@@ -370,6 +408,7 @@ export default function SinglePage() {
     setTypingMessageIds((p) => [...p, msgId]);
   };
 
+  // Essay change handler (word‑count based feedback trigger)
   const handleEssayChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const txt = e.target.value;
     setFinalAnswer(txt);
@@ -380,26 +419,26 @@ export default function SinglePage() {
     }
   };
 
-  const postStaticMessageSequentially = async (agent: Agent, text: string) => {
-    const tempId = getUniqueMessageId();
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: tempId,
-        sender: "ai",
-        text: "...",
-        agentId: agent.id,
-        timestamp: new Date().toISOString(),
-      },
-    ]);
-    setTypingMessageIds((prev) => [...prev, tempId]);
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === tempId
-          ? { ...m, text, timestamp: new Date().toISOString() }
-          : m
-      )
-    );
+  // Handle finish / move to next question
+  const handleNextQuestion = () => {
+    if (currentQuestion && finalAnswer) {
+      const spent = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      addSingleEssay({
+        questionType: currentQuestionType,
+        question: currentQuestion,
+        essay: finalAnswer,
+        chatLog: messages,
+        timeSpent: spent,
+      });
+    }
+
+    if (currentQuestionType === "creative") {
+      setCurrentQuestionType("argumentative");
+      startTimeRef.current = Date.now();
+      startNewRound("argumentative");
+    } else {
+      router.push("/completed");
+    }
   };
 
   // -----------------------------
@@ -437,6 +476,7 @@ export default function SinglePage() {
             <p className="text-white text-lg">{currentQuestion}</p>
           </div>
         )}
+
         <div className="flex flex-col bg-white bg-opacity-15 rounded-md p-4 mb-4 h-full border-2 border-blue-400 shadow-lg">
           <h3 className="text-xl text-white font-semibold mb-2">Your Essay</h3>
           <textarea
@@ -468,6 +508,7 @@ export default function SinglePage() {
             </div>
           </div>
 
+          {/* CHAT */}
           <div
             className="flex-1 p-4 overflow-y-auto"
             ref={chatContainerRef}

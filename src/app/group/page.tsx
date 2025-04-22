@@ -95,14 +95,14 @@ export default function GroupPage() {
   // Utility Functions
   // ----------------------------------------------------------------
 
-  // Generate a unique ID for messages
-  const getUniqueMessageId = () => {
+  /** Generate a stable, unique ID for each new message */
+  const getUniqueMessageId = useCallback((): number => {
     const id = nextMessageIdRef.current;
     nextMessageIdRef.current += 1;
     return id;
-  };
+  }, []);
 
-  // Format the timer display as MM:SS
+  /** Format the timer display as MM:SS */
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -114,19 +114,22 @@ export default function GroupPage() {
     typingMessageIdsRef.current = typingMessageIds;
   }, [typingMessageIds]);
 
-  // Make sure we can "await" typewriter completion
-  const waitForTypingToFinish = (messageId: number): Promise<void> => {
-    return new Promise((resolve) => {
-      const check = () => {
-        if (!typingMessageIdsRef.current.includes(messageId)) {
-          resolve();
-        } else {
-          setTimeout(check, 150);
-        }
-      };
-      check();
-    });
-  };
+  /** Allows awaiting completion of the typewriter animation */
+  const waitForTypingToFinish = useCallback(
+    (messageId: number): Promise<void> => {
+      return new Promise((resolve) => {
+        const check = () => {
+          if (!typingMessageIdsRef.current.includes(messageId)) {
+            resolve();
+          } else {
+            setTimeout(check, 150);
+          }
+        };
+        check();
+      });
+    },
+    []
+  );
 
   // ----------------------------------------------------------------
   // Chat Container Scrolling
@@ -201,35 +204,38 @@ export default function GroupPage() {
   // ----------------------------------------------------------------
   // Post a Static Bot Message (Greeting)
   // ----------------------------------------------------------------
-  const postStaticMessageSequentially = async (agent: Agent, text: string) => {
-    const messageId = getUniqueMessageId();
+  const postStaticMessageSequentially = useCallback(
+    async (agent: Agent, text: string) => {
+      const messageId = getUniqueMessageId();
 
-    // Insert placeholder "..."
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: messageId,
-        sender: "ai",
-        text: "...",
-        agentId: agent.id,
-        timestamp: new Date().toISOString(),
-      },
-    ]);
+      // Insert placeholder "..."
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: messageId,
+          sender: "ai",
+          text: "...",
+          agentId: agent.id,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
 
-    // Tiny delay (optional) so user sees "..."
-    await new Promise((res) => setTimeout(res, 200));
+      // Tiny delay (optional) so user sees "..."
+      await new Promise((res) => setTimeout(res, 200));
 
-    // Replace "..." with the final text
-    setMessages((prev) =>
-      prev.map((m) => (m.id === messageId ? { ...m, text } : m))
-    );
+      // Replace "..." with the final text
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, text } : m))
+      );
 
-    // Mark this message as typing so Typewriter can animate
-    setTypingMessageIds((prev) => [...prev, messageId]);
+      // Mark this message as typing so Typewriter can animate
+      setTypingMessageIds((prev) => [...prev, messageId]);
 
-    // Wait until typing finishes before returning
-    await waitForTypingToFinish(messageId);
-  };
+      // Wait until typing finishes before returning
+      await waitForTypingToFinish(messageId);
+    },
+    [getUniqueMessageId, waitForTypingToFinish]
+  );
 
   // ----------------------------------------------------------------
   // Question / Round Setup
@@ -276,7 +282,9 @@ export default function GroupPage() {
       const selectedTopic =
         chosenSet === "creative"
           ? creativeTopics[randomKey as keyof typeof creativeTopics]
-          : argumentativeTopics[randomKey as keyof typeof argumentativeTopics];
+          : argumentativeTopics[
+              randomKey as keyof typeof argumentativeTopics
+            ];
       setCurrentQuestion(randomKey);
       setCurrentAgents(selectedTopic);
 
@@ -332,30 +340,30 @@ export default function GroupPage() {
   // Generate Bot Responses (One After Another)
   // ----------------------------------------------------------------
   // Helper to call the AI service
-  const callAgentForResponse = async (
-    agent: Agent,
-    prompt: string
-  ): Promise<string> => {
-    try {
-      const response = await aiService.generateResponse(
-        [
+  const callAgentForResponse = useCallback(
+    async (agent: Agent, prompt: string): Promise<string> => {
+      try {
+        const response = await aiService.generateResponse(
+          [
+            {
+              id: 1,
+              sender: "user",
+              text: prompt,
+            },
+          ],
           {
-            id: 1,
-            sender: "user",
-            text: prompt,
-          },
-        ],
-        {
-          systemPrompt: agent.systemPrompt,
-          model: currentModel,
-        }
-      );
-      return response;
-    } catch (err) {
-      console.error("Error calling AI for agent:", agent.name, err);
-      return "(*Error calling AI*)";
-    }
-  };
+            systemPrompt: agent.systemPrompt,
+            model: currentModel,
+          }
+        );
+        return response;
+      } catch (err) {
+        console.error("Error calling AI for agent:", agent.name, err);
+        return "(*Error calling AI*)";
+      }
+    },
+    [currentModel]
+  );
 
   // Actually loop over all agents in random order, letting them respond
   const generateResponsesFromAllAgents = async (userMessage: string) => {

@@ -36,7 +36,7 @@ export default function TestPage() {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  // Load questions
+  // Load questions once
   useEffect(() => {
     const loadQuestions = async () => {
       try {
@@ -47,6 +47,7 @@ export default function TestPage() {
         setAllQuestions(shuffled.slice(0, 2));
       } catch (error) {
         console.error("Error loading questions:", error);
+        // Fallback questions
         setAllQuestions([
           {
             id: 1,
@@ -64,15 +65,18 @@ export default function TestPage() {
         setIsLoading(false);
       }
     };
+
     loadQuestions();
   }, []);
 
   // Start or advance round
   const startNewRound = useCallback(() => {
     if (!loadedQuestions) {
+      // Wait until questions are loaded, then retry
       setTimeout(startNewRound, 500);
       return;
     }
+
     if (usedQuestionIndices.length >= allQuestions.length) {
       router.push("/");
       return;
@@ -80,6 +84,7 @@ export default function TestPage() {
 
     setCurrentAnswer("");
     const newIndex = usedQuestionIndices.length;
+
     setUsedQuestionIndices((prev) => [...prev, newIndex]);
     setCurrentQuestion(allQuestions[newIndex]);
 
@@ -88,8 +93,9 @@ export default function TestPage() {
   }, [
     loadedQuestions,
     usedQuestionIndices.length,
-    allQuestions.length,
+    allQuestions, // <-- added to satisfy react‑hooks/exhaustive-deps
     router,
+    timerDuration,
   ]);
 
   // Initialize on load
@@ -104,7 +110,7 @@ export default function TestPage() {
     startNewRound();
   }, [startNewRound]);
 
-  // Timer effect
+  // Timer logic
   useEffect(() => {
     if (timeLeft <= 0) {
       handleNextQuestion();
@@ -115,6 +121,7 @@ export default function TestPage() {
     const timerId = setTimeout(() => {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
+
     return () => clearTimeout(timerId);
   }, [timeLeft, handleNextQuestion]);
 
@@ -128,6 +135,7 @@ export default function TestPage() {
 
   return (
     <div className="h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-4 flex flex-col overflow-hidden">
+      {/* Prompt & timer */}
       {currentQuestion && (
         <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
           <div className="flex justify-between items-start mb-2">
@@ -157,6 +165,7 @@ export default function TestPage() {
         </div>
       )}
 
+      {/* Essay box */}
       <div className="flex flex-col bg-white bg-opacity-15 rounded-md p-4 mb-4 h-full border-2 border-blue-400 shadow-lg">
         <h3 className="text-xl text-white font-semibold mb-2">Your Essay</h3>
         <textarea
