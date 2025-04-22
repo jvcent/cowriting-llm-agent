@@ -113,12 +113,12 @@ export const aiService = {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": process.env.CLAUDE_API_KEY || "",
+            "x-api-key": process.env.NEXT_PUBLIC_CLAUDE_API_KEY || "",
           },
           body: JSON.stringify({
-            messages: formattedMessages, // Use formattedMessages instead of messages
+            messages: formattedMessages,
             systemPrompt: options.systemPrompt || "",
-            model: modelId, // Use the resolved model ID
+            model: modelId,
           }),
         });
 
