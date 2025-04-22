@@ -6,15 +6,6 @@ const ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;
 
 export async function POST(request: Request) {
   try {
-    // Validate API key is present
-    if (!ANTHROPIC_API_KEY) {
-      console.error("No Claude API key found in environment variables");
-      return NextResponse.json(
-        { error: "API configuration error" },
-        { status: 500 }
-      );
-    }
-
     const body = await request.json();
     const { messages, systemPrompt, model } = body;
 
@@ -29,6 +20,7 @@ export async function POST(request: Request) {
     }
 
     // Try using a known working model ID as a fallback
+    // claude-2.0 is more widely available and stable
     const modelToUse = model || "claude-2.0";
     console.log("Using model:", modelToUse);
 
@@ -36,8 +28,8 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2024-02-01",
+        "x-api-key": ANTHROPIC_API_KEY || "",
+        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
         model: modelToUse,
@@ -46,10 +38,7 @@ export async function POST(request: Request) {
         system:
           systemPrompt ||
           "You are a helpful teaching assistant named Bob who helps students with math problems.",
-        messages: messages.map((msg: any) => ({
-          role: msg.sender === "user" ? "user" : "assistant",
-          content: msg.text,
-        })),
+        messages: messages,
       }),
     });
 
@@ -67,8 +56,8 @@ export async function POST(request: Request) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-api-key": ANTHROPIC_API_KEY,
-              "anthropic-version": "2024-02-01",
+              "x-api-key": process.env.CLAUDE_API_KEY || "",
+              "anthropic-version": "2023-06-01",
             },
             body: JSON.stringify({
               model: "claude-2.0",
@@ -77,10 +66,7 @@ export async function POST(request: Request) {
               system:
                 systemPrompt ||
                 "You are a helpful teaching assistant named Bob who helps students with math problems.",
-              messages: messages.map((msg: any) => ({
-                role: msg.sender === "user" ? "user" : "assistant",
-                content: msg.text,
-              })),
+              messages: messages,
             }),
           }
         );
@@ -94,17 +80,8 @@ export async function POST(request: Request) {
         }
       }
 
-      // Enhanced error response
-      let errorMessage = `Claude API error: ${response.status}`;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage += ` - ${errorJson.error?.message || errorText}`;
-      } catch {
-        errorMessage += ` - ${errorText}`;
-      }
-
       return NextResponse.json(
-        { error: errorMessage },
+        { error: `Claude API error: ${response.status} - ${errorText}` },
         { status: response.status }
       );
     }
@@ -114,10 +91,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error in Claude API route:", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Unknown error occurred",
-      },
+      { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
   }
