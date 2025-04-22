@@ -1,3 +1,7 @@
+// ----------------------------------------------------------------
+// GroupPage component – agents capped to MAX_AGENTS_PER_ROUND = 3
+// ----------------------------------------------------------------
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -19,6 +23,11 @@ interface Agent {
   avatar: string;
   systemPrompt: string;
 }
+
+// ----------------------------------------------------------------
+// Constants
+// ----------------------------------------------------------------
+const MAX_AGENTS_PER_ROUND = 3; // change this if you ever need more agents
 
 // ----------------------------------------------------------------
 // Component
@@ -113,23 +122,6 @@ export default function GroupPage() {
   useEffect(() => {
     typingMessageIdsRef.current = typingMessageIds;
   }, [typingMessageIds]);
-
-  /** Allows awaiting completion of the typewriter animation */
-  // const waitForTypingToFinish = useCallback(
-  //   (messageId: number): Promise<void> => {
-  //     return new Promise((resolve) => {
-  //       const check = () => {
-  //         if (!typingMessageIdsRef.current.includes(messageId)) {
-  //           resolve();
-  //         } else {
-  //           setTimeout(check, 150);
-  //         }
-  //       };
-  //       check();
-  //     });
-  //   },
-  //   []
-  // );
 
   // ----------------------------------------------------------------
   // Chat Container Scrolling
@@ -266,28 +258,37 @@ export default function GroupPage() {
       roundEndedRef.current = false;
       setTimeLeft(timerDuration);
 
+      // Clear current agents first
+      setCurrentAgents([]);
+
       // Decide which set we'll use (creative vs argumentative)
       const chosenSet = overrideSet ?? currentQuestionSet;
-      const topics = Object.keys(
-        chosenSet === "creative" ? creativeTopics : argumentativeTopics
-      );
-      const randomKey = topics[Math.floor(Math.random() * topics.length)];
-      const selectedTopic =
-        chosenSet === "creative"
-          ? creativeTopics[randomKey as keyof typeof creativeTopics]
-          : argumentativeTopics[randomKey as keyof typeof argumentativeTopics];
+      const topicsObj =
+        chosenSet === "creative" ? creativeTopics : argumentativeTopics;
+      const topicKeys = Object.keys(topicsObj);
+      const randomKey = topicKeys[Math.floor(Math.random() * topicKeys.length)];
+      const allAgents = topicsObj[randomKey as keyof typeof topicsObj]; // could be >3
+
+      // Keep only up to MAX_AGENTS_PER_ROUND agents in random order
+      const chosenAgents: Agent[] = [...allAgents]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, MAX_AGENTS_PER_ROUND);
+
       setCurrentQuestion(randomKey);
-      setCurrentAgents(selectedTopic);
+
+      // Update state & wait a tick before sending intro messages
+      await new Promise<void>((resolve) => {
+        setCurrentAgents(chosenAgents);
+        setTimeout(resolve, 0);
+      });
 
       try {
-        // Have each agent introduce themselves
-        if (selectedTopic.length > 0) {
-          for (const agent of selectedTopic) {
-            await postStaticMessageSequentially(
-              agent,
-              `Hi! I'm ${agent.name}. I'm here to help you with this ${chosenSet} writing task. I'll provide feedback and suggestions as you write.`
-            );
-          }
+        // Each chosen agent introduces themselves
+        for (const agent of chosenAgents) {
+          await postStaticMessageSequentially(
+            agent,
+            `Hi! I'm ${agent.name}. I'm here to help you with this ${chosenSet} writing task. I'll provide feedback and suggestions as you write.`
+          );
         }
 
         setIsQuestioningEnabled(true);
@@ -299,10 +300,11 @@ export default function GroupPage() {
   );
 
   useEffect(() => {
-    if (loadedQuestions) {
+    if (loadedQuestions && !currentQuestion) {
+      // Only start new round if we don't have a question yet
       startNewRound();
     }
-  }, [loadedQuestions, startNewRound]);
+  }, [loadedQuestions, startNewRound, currentQuestion]);
 
   // Move to next question or to "break" route
   const handleNextQuestion = () => {
@@ -321,7 +323,7 @@ export default function GroupPage() {
     if (currentQuestionSet === "creative") {
       setCurrentQuestionSet("argumentative");
       startTimeRef.current = Date.now(); // Reset start time
-      startNewRound("argumentative");
+      startNewRound("argumentative"); // This will handle everything including state updates
     } else {
       router.push("/completed");
     }
@@ -545,7 +547,7 @@ export default function GroupPage() {
 
   // Track final answer as the user types
   const handleFinalAnswerChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const newText = e.target.value;
     setFinalAnswer(newText);

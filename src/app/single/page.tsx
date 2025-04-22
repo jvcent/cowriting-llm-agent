@@ -43,8 +43,9 @@ export default function SinglePage() {
   const [currentModel] = useState(AI_MODELS.CLAUDE_HAIKU.id);
   const [, setLastUserActivityTime] = useState(Date.now());
 
+  const timerDuration = 300;
   const [loadedQuestions, setLoadedQuestions] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300);
+  const [timeLeft, setTimeLeft] = useState(timerDuration);
 
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
   const [currentAgents, setCurrentAgents] = useState<Agent[]>([]);
@@ -314,7 +315,7 @@ export default function SinglePage() {
       setEvaluationComplete(false);
       setUserHasScrolled(false);
       roundEndedRef.current = false;
-      setTimeLeft(300);
+      setTimeLeft(timerDuration);
 
       const chosen = overrideType ?? currentQuestionType;
       const topics: TopicMap =

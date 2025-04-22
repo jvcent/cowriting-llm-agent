@@ -142,6 +142,7 @@ export default function Terms() {
               width={100}
               height={100}
               className="opacity-80"
+              priority
             />
           </div>
         </div>
