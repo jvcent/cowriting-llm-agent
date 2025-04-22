@@ -4,15 +4,13 @@ import TypewriterText from "./TypewriterText";
 interface TypewriterTextWrapperProps {
   text: string;
   speed?: number;
-  messageId: number;
-  onTypingProgress?: (progress?: any) => void;
+  onTypingProgress?: (progress: number) => void;
   onTypingComplete?: () => void;
 }
 
 export default function TypewriterTextWrapper({
   text,
   speed = 50,
-  messageId,
   onTypingProgress,
   onTypingComplete,
 }: TypewriterTextWrapperProps) {

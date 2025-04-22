@@ -88,12 +88,11 @@ export default function TestPage() {
   };
 
   // Initialize on load
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (loadedQuestions) {
       startNewRound();
     }
-  }, [loadedQuestions]);
+  }, [loadedQuestions, startNewRound]);
 
   // Advance when time's up
   const handleNextQuestion = () => {
@@ -101,7 +100,6 @@ export default function TestPage() {
   };
 
   // Timer effect
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (timeLeft <= 0) {
       handleNextQuestion();
@@ -113,7 +111,7 @@ export default function TestPage() {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
     return () => clearTimeout(timerId);
-  }, [timeLeft]);
+  }, [timeLeft, handleNextQuestion]);
 
   if (isLoading) {
     return (
@@ -128,7 +126,9 @@ export default function TestPage() {
       {currentQuestion && (
         <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
           <div className="flex justify-between items-start mb-2">
-            <h2 className="text-xl text-white font-semibold">Writing Prompt:</h2>
+            <h2 className="text-xl text-white font-semibold">
+              Writing Prompt:
+            </h2>
             <div
               className={`p-2 rounded-lg ${
                 timeLeft > 60
@@ -138,7 +138,9 @@ export default function TestPage() {
                   : "bg-red-700 animate-pulse"
               } ml-4`}
             >
-              <div className="text-xl font-mono text-white">{formatTime(timeLeft)}</div>
+              <div className="text-xl font-mono text-white">
+                {formatTime(timeLeft)}
+              </div>
               {timeLeft <= 60 && (
                 <div className="text-xs text-white text-center">
                   {timeLeft <= 30 ? "Time almost up!" : "Finish soon!"}

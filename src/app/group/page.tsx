@@ -20,10 +20,6 @@ interface Agent {
   systemPrompt: string;
 }
 
-interface TopicMap {
-  [key: string]: Agent[];
-}
-
 // ----------------------------------------------------------------
 // Component
 // ----------------------------------------------------------------
@@ -65,7 +61,6 @@ export default function GroupPage() {
   // Discussion states
   const [isQuestioningEnabled, setIsQuestioningEnabled] = useState(true);
   const [evaluationComplete, setEvaluationComplete] = useState(false);
-  const [botThinking, setBotThinking] = useState(false);
 
   // Timer states
   const timerDuration = 300;
@@ -362,7 +357,6 @@ export default function GroupPage() {
   // Actually loop over all agents in random order, letting them respond
   const generateResponsesFromAllAgents = async (userMessage: string) => {
     const activeFeedback = feedbackSessionId;
-    setBotThinking(true);
 
     // Randomize the order in which agents respond
     const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
@@ -414,8 +408,6 @@ export default function GroupPage() {
       // Optional: add a small delay to ensure a clean break
       await new Promise((res) => setTimeout(res, 300));
     }
-
-    setBotThinking(false);
   };
 
   // ----------------------------------------------------------------
@@ -691,23 +683,11 @@ export default function GroupPage() {
                   {/* Typewriter if still typing */}
                   {typingMessageIds.includes(msg.id) ? (
                     <TypewriterTextWrapper
-                      key={`typewriter-${msg.id}`}
+                      key={msg.id}
                       text={msg.text ?? ""}
                       speed={50}
-                      messageId={msg.id}
-                      onTypingProgress={() => {
-                        if (!userHasScrolled) {
-                          scrollToBottom();
-                        }
-                      }}
-                      onTypingComplete={() => {
-                        // Remove from typing IDs, track completion
-                        setTypingMessageIds((prev) =>
-                          prev.filter((id) => id !== msg.id)
-                        );
-                        setTimeout(() => scrollToBottom(true), 50);
-                        scrollToBottom(true);
-                      }}
+                      onTypingProgress={() => {}}
+                      onTypingComplete={() => {}}
                     />
                   ) : (
                     // If not typing, just render the text

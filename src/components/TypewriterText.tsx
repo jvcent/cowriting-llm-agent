@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 interface TypewriterTextProps {
   text: string;
@@ -130,7 +130,7 @@ export default function TypewriterText({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [text, speed, onComplete, onCharacterTyped]);
+  }, [text, speed, onComplete, onCharacterTyped, isComplete]);
 
   return <div className="whitespace-pre-wrap">{displayText}</div>;
 }

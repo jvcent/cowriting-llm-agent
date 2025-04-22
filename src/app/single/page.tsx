@@ -47,10 +47,13 @@ export default function SinglePage() {
   const [timeLeft, setTimeLeft] = useState(300);
 
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
-  const [currentTopic, setCurrentTopic] = useState<string | null>(null);
   const [currentAgents, setCurrentAgents] = useState<Agent[]>([]);
-  const [currentQuestionType, setCurrentQuestionType] = useState<"creative" | "argumentative">("creative");
-  const [questionSequence] = useState<"creative" | "argumentative" | "break">("creative");
+  const [currentQuestionType, setCurrentQuestionType] = useState<
+    "creative" | "argumentative"
+  >("creative");
+  const [questionSequence] = useState<"creative" | "argumentative" | "break">(
+    "creative"
+  );
 
   const startTimeRef = useRef<number>(Date.now());
   const [lastWritingTime, setLastWritingTime] = useState<number>(Date.now());
@@ -90,21 +93,11 @@ export default function SinglePage() {
     const c = chatContainerRef.current;
     if (!c) return;
     if (Date.now() - lastManualScrollTimeRef.current < 50) return;
-    const nearBottom = Math.abs(c.scrollHeight - c.scrollTop - c.clientHeight) < 150;
+    const nearBottom =
+      Math.abs(c.scrollHeight - c.scrollTop - c.clientHeight) < 150;
     setUserHasScrolled(!nearBottom);
     manualScrollOverrideRef.current = !nearBottom;
   };
-
-  // Keep user auto-scrolled on new user message
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const latest = messages[messages.length - 1];
-    if (latest?.sender === "user") {
-      manualScrollOverrideRef.current = false;
-      lastManualScrollTimeRef.current = Date.now();
-      setTimeout(() => scrollToBottom(true), 50);
-    }
-  }, [messages.length]);
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -113,7 +106,48 @@ export default function SinglePage() {
   };
 
   const getWordCount = (text: string) =>
-    text.trim().split(/\s+/).filter((w) => w).length;
+    text
+      .trim()
+      .split(/\s+/)
+      .filter((w) => w).length;
+
+  const autoSubmitTimeoutAnswer = () => {
+    roundEndedRef.current = true;
+    setIsQuestioningEnabled(false);
+    setEvaluationComplete(true);
+
+    // Post user's final answer as a message (so the bots can see it if needed)
+    if (finalAnswer.trim()) {
+      const userMsg: Message = {
+        id: getUniqueMessageId(),
+        sender: "user",
+        text: `My final answer is: ${finalAnswer}`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setFinalAnswer("");
+    }
+  };
+
+  const triggerStarterFeedback = async () => {
+    if (roundEndedRef.current || hasGivenStarterFeedback) return;
+    setHasGivenStarterFeedback(true);
+    const agent = currentAgents[0];
+    await postStaticMessageSequentially(
+      agent,
+      "I notice you've been writing for a while. Would you like some feedback on your progress so far?"
+    );
+  };
+
+  // Keep user auto-scrolled on new user message
+  useEffect(() => {
+    const latest = messages[messages.length - 1];
+    if (latest?.sender === "user") {
+      manualScrollOverrideRef.current = false;
+      lastManualScrollTimeRef.current = Date.now();
+      setTimeout(() => scrollToBottom(true), 50);
+    }
+  }, [messages, scrollToBottom]);
 
   const generateAIResponse = async (userMessage: string) => {
     if (roundEndedRef.current) return;
@@ -123,16 +157,34 @@ export default function SinglePage() {
     const tempId = getUniqueMessageId();
     setMessages((prev) => [
       ...prev,
-      { id: tempId, sender: "ai", text: "...", agentId: agent.id, timestamp: new Date().toISOString() },
+      {
+        id: tempId,
+        sender: "ai",
+        text: "...",
+        agentId: agent.id,
+        timestamp: new Date().toISOString(),
+      },
     ]);
 
     try {
       const response = await aiService.generateResponse(
-        [...messages, { id: nextMessageId, sender: "user", text: userMessage, timestamp: new Date().toISOString() }],
+        [
+          ...messages,
+          {
+            id: nextMessageId,
+            sender: "user",
+            text: userMessage,
+            timestamp: new Date().toISOString(),
+          },
+        ],
         { systemPrompt: agent.systemPrompt, model: currentModel }
       );
       setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, text: response, timestamp: new Date().toISOString() } : m))
+        prev.map((m) =>
+          m.id === tempId
+            ? { ...m, text: response, timestamp: new Date().toISOString() }
+            : m
+        )
       );
       setTypingMessageIds((prev) => [...prev, tempId]);
     } catch (err) {
@@ -143,7 +195,7 @@ export default function SinglePage() {
     }
   };
 
-  // ←─── HERE’S THE FIX ────→
+  // ←─── HERE'S THE FIX ────→
   const handleUserQuestion = () => {
     if (!input.trim() || typingMessageIds.length) return;
 
@@ -170,13 +222,17 @@ export default function SinglePage() {
 
   const fetchQuestions = async () => {
     try {
-      const topics: TopicMap = questionSequence === "creative" ? creativeTopics : argumentativeTopics;
+      const topics: TopicMap =
+        questionSequence === "creative" ? creativeTopics : argumentativeTopics;
       const keys = Object.keys(topics);
       const rk = keys[Math.floor(Math.random() * keys.length)];
       const agentsList = topics[rk];
       const agent = agentsList[Math.floor(Math.random() * agentsList.length)];
-      setCurrentQuestionType(questionSequence === "break" ? "creative" : (questionSequence as "creative" | "argumentative"));
-      setCurrentTopic(rk);
+      setCurrentQuestionType(
+        questionSequence === "break"
+          ? "creative"
+          : (questionSequence as "creative" | "argumentative")
+      );
       setCurrentAgents([agent]);
       setCurrentQuestion(rk);
       setLoadedQuestions(true);
@@ -185,10 +241,9 @@ export default function SinglePage() {
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchQuestions();
-  }, [questionSequence]);
+  }, [questionSequence, fetchQuestions]);
 
   const handleNextQuestion = () => {
     if (currentQuestion && finalAnswer) {
@@ -227,7 +282,8 @@ export default function SinglePage() {
     setTimeLeft(300);
 
     const chosen = overrideType ?? currentQuestionType;
-    const topics: TopicMap = chosen === "creative" ? creativeTopics : argumentativeTopics;
+    const topics: TopicMap =
+      chosen === "creative" ? creativeTopics : argumentativeTopics;
 
     try {
       const keys = Object.keys(topics);
@@ -254,62 +310,28 @@ export default function SinglePage() {
   }, [loadedQuestions]);
 
   // Timer countdown
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (timeLeft <= 0) {
-      if (isQuestioningEnabled) autoSubmitTimeoutAnswer();
+      if (isQuestioningEnabled) {
+        autoSubmitTimeoutAnswer();
+      }
       return;
     }
     if (roundEndedRef.current) return;
-    const id = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
-    return () => clearTimeout(id);
-  }, [timeLeft, isQuestioningEnabled]);
+
+    const t = setTimeout(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(t);
+  }, [timeLeft, isQuestioningEnabled, autoSubmitTimeoutAnswer]);
 
   // Starter feedback on idle
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (roundEndedRef.current || hasGivenStarterFeedback) return;
-    const iv = setInterval(() => {
-      const now = Date.now();
-      const wc = getWordCount(finalAnswer);
-      if (wc < lastFeedbackWordCount + 35 && now - lastWritingTime >= 60000) {
-        triggerStarterFeedback();
-        setHasGivenStarterFeedback(true);
-      }
-    }, 5000);
-    return () => clearInterval(iv);
-  }, [lastWritingTime, finalAnswer, hasGivenStarterFeedback]);
-
-  const autoSubmitTimeoutAnswer = () => {
-    setIsQuestioningEnabled(false);
-    roundEndedRef.current = true;
-    setEvaluationComplete(true);
-  };
-
-  const triggerStarterFeedback = async () => {
-    if (roundEndedRef.current) return;
-    const agent = currentAgents[0];
-    const msgId = getUniqueMessageId();
-    setMessages((p) => [
-      ...p,
-      { id: msgId, sender: "ai", text: "...", agentId: agent.id, timestamp: new Date().toISOString() },
-    ]);
-    const resp = await aiService.generateResponse(
-      [
-        {
-          id: nextMessageId,
-          sender: "user",
-          text: `The user is looking at the writing prompt: "${currentQuestion}". Without mentioning that they haven't started yet, provide encouraging suggestions for how to approach this prompt and get started writing.`,
-          timestamp: new Date().toISOString(),
-        },
-      ],
-      { systemPrompt: agent.systemPrompt, model: currentModel }
-    );
-    setMessages((p) =>
-      p.map((m) => (m.id === msgId ? { ...m, text: resp, timestamp: new Date().toISOString() } : m))
-    );
-    setTypingMessageIds((p) => [...p, msgId]);
-  };
+    if (lastFeedbackWordCount > 0 && !hasGivenStarterFeedback) {
+      triggerStarterFeedback();
+    }
+  }, [lastFeedbackWordCount, hasGivenStarterFeedback, triggerStarterFeedback]);
 
   const triggerAutomaticFeedback = async (text: string) => {
     if (roundEndedRef.current) return;
@@ -317,7 +339,13 @@ export default function SinglePage() {
     const msgId = getUniqueMessageId();
     setMessages((p) => [
       ...p,
-      { id: msgId, sender: "ai", text: "...", agentId: agent.id, timestamp: new Date().toISOString() },
+      {
+        id: msgId,
+        sender: "ai",
+        text: "...",
+        agentId: agent.id,
+        timestamp: new Date().toISOString(),
+      },
     ]);
     const resp = await aiService.generateResponse(
       [
@@ -331,7 +359,11 @@ export default function SinglePage() {
       { systemPrompt: agent.systemPrompt, model: currentModel }
     );
     setMessages((p) =>
-      p.map((m) => (m.id === msgId ? { ...m, text: resp, timestamp: new Date().toISOString() } : m))
+      p.map((m) =>
+        m.id === msgId
+          ? { ...m, text: resp, timestamp: new Date().toISOString() }
+          : m
+      )
     );
     setTypingMessageIds((p) => [...p, msgId]);
   };
@@ -348,10 +380,25 @@ export default function SinglePage() {
   };
 
   const postStaticMessageSequentially = async (agent: Agent, text: string) => {
-    const msgId = getUniqueMessageId();
-    setMessages((p) => [...p, { id: msgId, sender: "ai", text: "...", agentId: agent.id, timestamp: new Date().toISOString() }]);
-    await new Promise((r) => setTimeout(r, 200));
-    setMessages((p) => p.map((m) => (m.id === msgId ? { ...m, text } : m)));
+    const tempId = getUniqueMessageId();
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        sender: "ai",
+        text: "...",
+        agentId: agent.id,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    setTypingMessageIds((prev) => [...prev, tempId]);
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === tempId
+          ? { ...m, text, timestamp: new Date().toISOString() }
+          : m
+      )
+    );
   };
 
   // Keep typing IDs in ref
@@ -363,7 +410,9 @@ export default function SinglePage() {
   const waitForTypingToFinish = (id: number): Promise<void> =>
     new Promise((resolve) => {
       const check = () =>
-        typingMessageIdsRef.current.includes(id) ? setTimeout(check, 150) : resolve();
+        typingMessageIdsRef.current.includes(id)
+          ? setTimeout(check, 150)
+          : resolve();
       check();
     });
 
@@ -377,7 +426,9 @@ export default function SinglePage() {
         {currentQuestion && (
           <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
             <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl text-white font-semibold">Writing Prompt:</h2>
+              <h2 className="text-xl text-white font-semibold">
+                Writing Prompt:
+              </h2>
               <div
                 className={`p-2 rounded-lg ${
                   timeLeft > 20
@@ -387,7 +438,9 @@ export default function SinglePage() {
                     : "bg-red-700 animate-pulse"
                 } ml-4`}
               >
-                <div className="text-xl font-mono text-white">{formatTime(timeLeft)}</div>
+                <div className="text-xl font-mono text-white">
+                  {formatTime(timeLeft)}
+                </div>
                 {timeLeft <= 20 && (
                   <div className="text-xs text-white text-center">
                     {timeLeft <= 10 ? "Time almost up!" : "Finish soon!"}
@@ -473,24 +526,11 @@ export default function SinglePage() {
                   )}
                   {typingMessageIds.includes(msg.id) ? (
                     <TypewriterTextWrapper
-                      key={`typewriter-${msg.id}`}
+                      key={msg.id}
                       text={msg.text ?? ""}
-                      speed={20}
-                      messageId={msg.id}
-                      onTypingProgress={() => {
-                        if (!userHasScrolled) scrollToBottom();
-                      }}
-                      onTypingComplete={() => {
-                        setTimeout(() => {
-                          if (typingMessageIdsRef.current.includes(msg.id)) {
-                            setTypingMessageIds((prev) =>
-                              prev.filter((id) => id !== msg.id)
-                            );
-                            setCompletedMessageIds((prev) => [...prev, msg.id]);
-                            if (!userHasScrolled) scrollToBottom();
-                          }
-                        }, 100);
-                      }}
+                      speed={50}
+                      onTypingProgress={() => {}}
+                      onTypingComplete={() => {}}
                     />
                   ) : (
                     <div className="whitespace-pre-wrap">{msg.text}</div>

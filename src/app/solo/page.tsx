@@ -79,12 +79,11 @@ export default function SoloPage() {
   };
 
   // Initialize first question when loaded
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (loadedQuestions) {
       startNewRound();
     }
-  }, [loadedQuestions]);
+  }, [loadedQuestions, startNewRound]);
 
   // Proceed to next question
   const handleNextQuestion = () => {
@@ -101,7 +100,6 @@ export default function SoloPage() {
   };
 
   // Countdown timer
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (timeLeft <= 0) {
       handleNextQuestion();
@@ -113,7 +111,7 @@ export default function SoloPage() {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
     return () => clearTimeout(timerId);
-  }, [timeLeft]);
+  }, [timeLeft, handleNextQuestion]);
 
   return (
     <div className="h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-4 flex flex-row overflow-hidden">
@@ -122,7 +120,9 @@ export default function SoloPage() {
         {currentQuestion && (
           <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
             <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl text-white font-semibold">Writing Prompt:</h2>
+              <h2 className="text-xl text-white font-semibold">
+                Writing Prompt:
+              </h2>
               <div
                 className={`p-2 rounded-lg ${
                   timeLeft > 20
@@ -132,7 +132,9 @@ export default function SoloPage() {
                     : "bg-red-700 animate-pulse"
                 } ml-4`}
               >
-                <div className="text-xl font-mono text-white">{formatTime(timeLeft)}</div>
+                <div className="text-xl font-mono text-white">
+                  {formatTime(timeLeft)}
+                </div>
                 {timeLeft <= 20 && (
                   <div className="text-xs text-white text-center">
                     {timeLeft <= 10 ? "Time almost up!" : "Finish soon!"}
