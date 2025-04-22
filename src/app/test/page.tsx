@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 // Define test questions structure
@@ -68,7 +68,7 @@ export default function TestPage() {
   }, []);
 
   // Start or advance round
-  const startNewRound = () => {
+  const startNewRound = useCallback(() => {
     if (!loadedQuestions) {
       setTimeout(startNewRound, 500);
       return;
@@ -85,7 +85,12 @@ export default function TestPage() {
 
     setTimeLeft(timerDuration);
     roundEndedRef.current = false;
-  };
+  }, [
+    loadedQuestions,
+    usedQuestionIndices.length,
+    allQuestions.length,
+    router,
+  ]);
 
   // Initialize on load
   useEffect(() => {
@@ -95,9 +100,9 @@ export default function TestPage() {
   }, [loadedQuestions, startNewRound]);
 
   // Advance when time's up
-  const handleNextQuestion = () => {
+  const handleNextQuestion = useCallback(() => {
     startNewRound();
-  };
+  }, [startNewRound]);
 
   // Timer effect
   useEffect(() => {

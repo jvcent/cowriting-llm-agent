@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import TypewriterTextWrapper from "@/components/TypewriterTextWrapper";
@@ -161,7 +161,7 @@ export default function GroupPage() {
   // Timer
   // ----------------------------------------------------------------
   // If time runs out before user is done
-  const autoSubmitTimeoutAnswer = () => {
+  const autoSubmitTimeoutAnswer = useCallback(() => {
     roundEndedRef.current = true;
     setIsQuestioningEnabled(false);
     setEvaluationComplete(true);
@@ -181,7 +181,7 @@ export default function GroupPage() {
       setMessages((prev) => [...prev, userMsg]);
       setFinalAnswer("");
     }
-  };
+  }, [scratchboardContent, finalAnswer, getUniqueMessageId]);
 
   useEffect(() => {
     if (timeLeft <= 0) {
@@ -197,100 +197,6 @@ export default function GroupPage() {
     }, 1000);
     return () => clearTimeout(t);
   }, [timeLeft, isQuestioningEnabled, autoSubmitTimeoutAnswer]);
-
-  // ----------------------------------------------------------------
-  // Question / Round Setup
-  // ----------------------------------------------------------------
-  const fetchQuestions = async () => {
-    // In your real code, you'd load creativeTopics & argumentativeTopics from
-    // an API or local JSON. We'll just set loaded = true for this example
-    setLoadedQuestions(true);
-  };
-
-  useEffect(() => {
-    fetchQuestions();
-  }, []);
-
-  const startNewRound = async (overrideSet?: "creative" | "argumentative") => {
-    // Reset start time when starting new round
-    startTimeRef.current = Date.now();
-
-    // Reset idle tracking
-    setLastWritingTime(Date.now());
-    setHasGivenStarterFeedback(false);
-
-    // Create a new session concurrency so partial responses won't overlap
-    setFeedbackSessionId((prev) => prev + 1);
-
-    // Reset chat states
-    setMessages([]);
-    setTypingMessageIds([]);
-    setScratchboardContent("");
-    setInput("");
-    setFinalAnswer("");
-    setEvaluationComplete(false);
-    setUserHasScrolled(false);
-    roundEndedRef.current = false;
-    setTimeLeft(timerDuration);
-
-    // Decide which set we'll use (creative vs argumentative)
-    const chosenSet = overrideSet ?? currentQuestionSet;
-    const topics = Object.keys(
-      chosenSet === "creative" ? creativeTopics : argumentativeTopics
-    );
-    const randomKey = topics[Math.floor(Math.random() * topics.length)];
-    const selectedTopic =
-      chosenSet === "creative"
-        ? creativeTopics[randomKey as keyof typeof creativeTopics]
-        : argumentativeTopics[randomKey as keyof typeof argumentativeTopics];
-    setCurrentQuestion(randomKey);
-    setCurrentAgents(selectedTopic);
-
-    try {
-      // Have each agent introduce themselves
-      if (selectedTopic.length > 0) {
-        for (const agent of selectedTopic) {
-          await postStaticMessageSequentially(
-            agent,
-            `Hi! I'm ${agent.name}. I'm here to help you with this ${chosenSet} writing task. I'll provide feedback and suggestions as you write.`
-          );
-        }
-      }
-
-      setIsQuestioningEnabled(true);
-    } catch (err) {
-      console.error("Error starting round:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (loadedQuestions) {
-      startNewRound();
-    }
-  }, [loadedQuestions, startNewRound]);
-
-  // Move to next question or to "break" route
-  const handleNextQuestion = () => {
-    // Save current essay data before moving to next
-    if (currentQuestion && finalAnswer) {
-      const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      addGroupEssay({
-        questionType: currentQuestionSet,
-        question: currentQuestion,
-        essay: finalAnswer,
-        chatLog: messages,
-        timeSpent,
-      });
-    }
-
-    if (currentQuestionSet === "creative") {
-      setCurrentQuestionSet("argumentative");
-      startTimeRef.current = Date.now(); // Reset start time
-      startNewRound("argumentative");
-    } else {
-      router.push("/completed");
-    }
-  };
 
   // ----------------------------------------------------------------
   // Post a Static Bot Message (Greeting)
@@ -323,6 +229,103 @@ export default function GroupPage() {
 
     // Wait until typing finishes before returning
     await waitForTypingToFinish(messageId);
+  };
+
+  // ----------------------------------------------------------------
+  // Question / Round Setup
+  // ----------------------------------------------------------------
+  const fetchQuestions = async () => {
+    // In your real code, you'd load creativeTopics & argumentativeTopics from
+    // an API or local JSON. We'll just set loaded = true for this example
+    setLoadedQuestions(true);
+  };
+
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  const startNewRound = useCallback(
+    async (overrideSet?: "creative" | "argumentative") => {
+      // Reset start time when starting new round
+      startTimeRef.current = Date.now();
+
+      // Reset idle tracking
+      setLastWritingTime(Date.now());
+      setHasGivenStarterFeedback(false);
+
+      // Create a new session concurrency so partial responses won't overlap
+      setFeedbackSessionId((prev) => prev + 1);
+
+      // Reset chat states
+      setMessages([]);
+      setTypingMessageIds([]);
+      setScratchboardContent("");
+      setInput("");
+      setFinalAnswer("");
+      setEvaluationComplete(false);
+      setUserHasScrolled(false);
+      roundEndedRef.current = false;
+      setTimeLeft(timerDuration);
+
+      // Decide which set we'll use (creative vs argumentative)
+      const chosenSet = overrideSet ?? currentQuestionSet;
+      const topics = Object.keys(
+        chosenSet === "creative" ? creativeTopics : argumentativeTopics
+      );
+      const randomKey = topics[Math.floor(Math.random() * topics.length)];
+      const selectedTopic =
+        chosenSet === "creative"
+          ? creativeTopics[randomKey as keyof typeof creativeTopics]
+          : argumentativeTopics[randomKey as keyof typeof argumentativeTopics];
+      setCurrentQuestion(randomKey);
+      setCurrentAgents(selectedTopic);
+
+      try {
+        // Have each agent introduce themselves
+        if (selectedTopic.length > 0) {
+          for (const agent of selectedTopic) {
+            await postStaticMessageSequentially(
+              agent,
+              `Hi! I'm ${agent.name}. I'm here to help you with this ${chosenSet} writing task. I'll provide feedback and suggestions as you write.`
+            );
+          }
+        }
+
+        setIsQuestioningEnabled(true);
+      } catch (err) {
+        console.error("Error starting round:", err);
+      }
+    },
+    [currentQuestionSet, postStaticMessageSequentially]
+  );
+
+  useEffect(() => {
+    if (loadedQuestions) {
+      startNewRound();
+    }
+  }, [loadedQuestions, startNewRound]);
+
+  // Move to next question or to "break" route
+  const handleNextQuestion = () => {
+    // Save current essay data before moving to next
+    if (currentQuestion && finalAnswer) {
+      const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      addGroupEssay({
+        questionType: currentQuestionSet,
+        question: currentQuestion,
+        essay: finalAnswer,
+        chatLog: messages,
+        timeSpent,
+      });
+    }
+
+    if (currentQuestionSet === "creative") {
+      setCurrentQuestionSet("argumentative");
+      startTimeRef.current = Date.now(); // Reset start time
+      startNewRound("argumentative");
+    } else {
+      router.push("/completed");
+    }
   };
 
   // ----------------------------------------------------------------
@@ -483,7 +486,7 @@ export default function GroupPage() {
     }
   };
 
-  const triggerStarterFeedback = async () => {
+  const triggerStarterFeedback = useCallback(async () => {
     if (roundEndedRef.current) return;
 
     setFeedbackSessionId((prev) => prev + 1);
@@ -517,7 +520,13 @@ export default function GroupPage() {
       await waitForTypingToFinish(messageId);
       await new Promise((res) => setTimeout(res, 300));
     }
-  };
+  }, [
+    currentAgents,
+    currentQuestion,
+    getUniqueMessageId,
+    callAgentForResponse,
+    waitForTypingToFinish,
+  ]);
 
   // Check for idle time and low word count
   useEffect(() => {

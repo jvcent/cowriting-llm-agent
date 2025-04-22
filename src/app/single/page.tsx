@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import TypewriterTextWrapper from "@/components/TypewriterTextWrapper";
@@ -79,15 +79,18 @@ export default function SinglePage() {
   const forceScrollToBottomRef = useRef(false);
   const manualScrollOverrideRef = useRef(false);
 
-  const scrollToBottom = (force = false) => {
-    const c = chatContainerRef.current;
-    if (!c) return;
-    if (manualScrollOverrideRef.current && !force) return;
-    if (force || forceScrollToBottomRef.current || !userHasScrolled) {
-      c.scrollTop = c.scrollHeight;
-      forceScrollToBottomRef.current = false;
-    }
-  };
+  const scrollToBottom = useCallback(
+    (force = false) => {
+      const c = chatContainerRef.current;
+      if (!c) return;
+      if (manualScrollOverrideRef.current && !force) return;
+      if (force || forceScrollToBottomRef.current || !userHasScrolled) {
+        c.scrollTop = c.scrollHeight;
+        forceScrollToBottomRef.current = false;
+      }
+    },
+    [userHasScrolled]
+  );
 
   const handleScroll = () => {
     const c = chatContainerRef.current;
@@ -111,7 +114,7 @@ export default function SinglePage() {
       .split(/\s+/)
       .filter((w) => w).length;
 
-  const autoSubmitTimeoutAnswer = () => {
+  const autoSubmitTimeoutAnswer = useCallback(() => {
     roundEndedRef.current = true;
     setIsQuestioningEnabled(false);
     setEvaluationComplete(true);
@@ -127,9 +130,9 @@ export default function SinglePage() {
       setMessages((prev) => [...prev, userMsg]);
       setFinalAnswer("");
     }
-  };
+  }, [finalAnswer, getUniqueMessageId]);
 
-  const triggerStarterFeedback = async () => {
+  const triggerStarterFeedback = useCallback(async () => {
     if (roundEndedRef.current || hasGivenStarterFeedback) return;
     setHasGivenStarterFeedback(true);
     const agent = currentAgents[0];
@@ -137,7 +140,7 @@ export default function SinglePage() {
       agent,
       "I notice you've been writing for a while. Would you like some feedback on your progress so far?"
     );
-  };
+  }, [currentAgents, hasGivenStarterFeedback]);
 
   // Keep user auto-scrolled on new user message
   useEffect(() => {
@@ -220,7 +223,7 @@ export default function SinglePage() {
     generateAIResponse(userText);
   };
 
-  const fetchQuestions = async () => {
+  const fetchQuestions = useCallback(async () => {
     try {
       const topics: TopicMap =
         questionSequence === "creative" ? creativeTopics : argumentativeTopics;
@@ -239,11 +242,11 @@ export default function SinglePage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [questionSequence]);
 
   useEffect(() => {
     fetchQuestions();
-  }, [questionSequence, fetchQuestions]);
+  }, [fetchQuestions]);
 
   const handleNextQuestion = () => {
     if (currentQuestion && finalAnswer) {
@@ -304,10 +307,9 @@ export default function SinglePage() {
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (loadedQuestions) startNewRound();
-  }, [loadedQuestions]);
+  }, [loadedQuestions, startNewRound]);
 
   // Timer countdown
   useEffect(() => {
@@ -371,7 +373,6 @@ export default function SinglePage() {
   const handleEssayChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const txt = e.target.value;
     setFinalAnswer(txt);
-    setLastWritingTime(Date.now());
     const wc = getWordCount(txt);
     if (wc >= lastFeedbackWordCount + 35) {
       setLastFeedbackWordCount(wc);
@@ -400,21 +401,6 @@ export default function SinglePage() {
       )
     );
   };
-
-  // Keep typing IDs in ref
-  const typingMessageIdsRef = useRef<number[]>([]);
-  useEffect(() => {
-    typingMessageIdsRef.current = typingMessageIds;
-  }, [typingMessageIds]);
-
-  const waitForTypingToFinish = (id: number): Promise<void> =>
-    new Promise((resolve) => {
-      const check = () =>
-        typingMessageIdsRef.current.includes(id)
-          ? setTimeout(check, 150)
-          : resolve();
-      check();
-    });
 
   // -----------------------------
   // RENDER

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useFlow } from "@/context/FlowContext";
 
@@ -57,7 +57,7 @@ export default function SoloPage() {
   };
 
   // Start or restart a question round
-  const startNewRound = () => {
+  const startNewRound = useCallback(() => {
     if (!loadedQuestions) {
       setTimeout(startNewRound, 500);
       return;
@@ -76,7 +76,7 @@ export default function SoloPage() {
     setTimeLeft(timerDuration);
     roundEndedRef.current = false;
     startTimeRef.current = Date.now();
-  };
+  }, [loadedQuestions, usedQuestionIndices.length, allQuestions, router]);
 
   // Initialize first question when loaded
   useEffect(() => {
@@ -86,7 +86,7 @@ export default function SoloPage() {
   }, [loadedQuestions, startNewRound]);
 
   // Proceed to next question
-  const handleNextQuestion = () => {
+  const handleNextQuestion = useCallback(() => {
     if (currentQuestion && finalAnswer.trim()) {
       const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
       addSoloEssay({
@@ -97,7 +97,13 @@ export default function SoloPage() {
       });
     }
     startNewRound();
-  };
+  }, [
+    currentQuestion,
+    finalAnswer,
+    currentQuestionIndex,
+    addSoloEssay,
+    startNewRound,
+  ]);
 
   // Countdown timer
   useEffect(() => {
