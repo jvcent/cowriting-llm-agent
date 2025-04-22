@@ -16,6 +16,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
 
     steps:
       - name: Checkout 🛎️
@@ -46,8 +48,6 @@ jobs:
           # Verify build contents
           echo "✅ Out folder contents:"
           ls -R out/
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         working-directory: .
 
       - name: Upload artifact 📡
