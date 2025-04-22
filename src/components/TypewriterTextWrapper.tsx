@@ -18,7 +18,7 @@ export default function TypewriterTextWrapper({
     <TypewriterText
       text={text}
       speed={speed}
-      onCharacterTyped={onTypingProgress}
+      onCharacterTyped={() => onTypingProgress?.(0)}
       onComplete={onTypingComplete}
     />
   );
