@@ -115,21 +115,21 @@ export default function GroupPage() {
   }, [typingMessageIds]);
 
   /** Allows awaiting completion of the typewriter animation */
-  const waitForTypingToFinish = useCallback(
-    (messageId: number): Promise<void> => {
-      return new Promise((resolve) => {
-        const check = () => {
-          if (!typingMessageIdsRef.current.includes(messageId)) {
-            resolve();
-          } else {
-            setTimeout(check, 150);
-          }
-        };
-        check();
-      });
-    },
-    []
-  );
+  // const waitForTypingToFinish = useCallback(
+  //   (messageId: number): Promise<void> => {
+  //     return new Promise((resolve) => {
+  //       const check = () => {
+  //         if (!typingMessageIdsRef.current.includes(messageId)) {
+  //           resolve();
+  //         } else {
+  //           setTimeout(check, 150);
+  //         }
+  //       };
+  //       check();
+  //     });
+  //   },
+  //   []
+  // );
 
   // ----------------------------------------------------------------
   // Chat Container Scrolling
