@@ -8,10 +8,8 @@ export default function SoloPage() {
   const router = useRouter();
   const { addSoloEssay } = useFlow();
 
-  // Simplified state management
-  const [scratchboardContent, setScratchboardContent] = useState("");
+  // Final answer text
   const [finalAnswer, setFinalAnswer] = useState("");
-  const [evaluationComplete, setEvaluationComplete] = useState(false);
 
   // Timer state
   const timerDuration = 300;
@@ -22,92 +20,75 @@ export default function SoloPage() {
   // Question tracking
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [usedQuestionIndices, setUsedQuestionIndices] = useState<number[]>([]);
-  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
 
   // Questions state
   const [allQuestions, setAllQuestions] = useState<string[]>([]);
   const [loadedQuestions, setLoadedQuestions] = useState(false);
 
-  // Load questions from JSON file
+  // Load questions from JSON
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
         const response = await fetch("/questions.json");
-        if (!response.ok) {
-          throw new Error("Failed to fetch questions");
-        }
-
+        if (!response.ok) throw new Error("Failed to fetch questions");
         const data = await response.json();
         const questions: string[] = Object.values(data).flat() as string[];
-        // Only take 2 random questions from the pool
         const shuffled = questions.sort(() => 0.5 - Math.random());
-        const selectedQuestions = shuffled.slice(0, 2);
-
-        setAllQuestions(selectedQuestions);
-        setLoadedQuestions(true);
+        setAllQuestions(shuffled.slice(0, 2));
       } catch (error) {
         console.error("Error loading questions:", error);
-        // Use exactly 2 fallback questions
         setAllQuestions([
           "In how many ways can four couples be seated at a round table if the men and women want to sit alternately?",
           "In how many different ways can five people be seated at a circular table?",
         ]);
+      } finally {
         setLoadedQuestions(true);
       }
     };
-
     fetchQuestions();
   }, []);
 
-  // Helper for formatting time
+  // Format seconds → MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
+  // Start or restart a question round
   const startNewRound = () => {
     if (!loadedQuestions) {
-      console.log("Waiting for questions to load...");
       setTimeout(startNewRound, 500);
       return;
     }
-
-    // Modified to check for exactly 2 questions
-    if (usedQuestionIndices.length >= 2) {
-      console.log("Both questions completed, redirecting to break screen");
+    if (usedQuestionIndices.length >= allQuestions.length) {
       router.push("/completed");
       return;
     }
 
-    // Reset state for new round
-    setEvaluationComplete(false);
-    setScratchboardContent("");
     setFinalAnswer("");
-
-    // Simplified question selection - just use the next question
     const newIndex = usedQuestionIndices.length;
     setCurrentQuestionIndex(newIndex);
     setUsedQuestionIndices((prev) => [...prev, newIndex]);
     setCurrentQuestion(allQuestions[newIndex]);
 
-    // Reset timer and other state
     setTimeLeft(timerDuration);
     roundEndedRef.current = false;
     startTimeRef.current = Date.now();
   };
 
-  // Initialize with first question once questions are loaded
+  // Initialize first question when loaded
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (loadedQuestions) {
       startNewRound();
     }
   }, [loadedQuestions]);
 
-  // Handle next question button
+  // Proceed to next question
   const handleNextQuestion = () => {
-    // Save current essay data before moving to next question
-    if (currentQuestion && finalAnswer) {
+    if (currentQuestion && finalAnswer.trim()) {
       const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
       addSoloEssay({
         questionType: currentQuestionIndex === 0 ? "creative" : "argumentative",
@@ -116,41 +97,32 @@ export default function SoloPage() {
         timeSpent,
       });
     }
-
-    setEvaluationComplete(false);
     startNewRound();
   };
 
-  // Add the timer useEffect
+  // Countdown timer
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (timeLeft <= 0) {
       handleNextQuestion();
       return;
     }
-
-    if (roundEndedRef.current) {
-      return;
-    }
+    if (roundEndedRef.current) return;
 
     const timerId = setTimeout(() => {
-      setTimeLeft((prevTime) => prevTime - 1);
+      setTimeLeft((prev) => prev - 1);
     }, 1000);
-
     return () => clearTimeout(timerId);
   }, [timeLeft]);
 
   return (
     <div className="h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-4 flex flex-row overflow-hidden">
-      {/* LEFT PANEL - Problem, Submission, Scratchboard */}
       <div className="w-full pr-2 flex flex-col h-full overflow-hidden">
-        {/* Problem Display with Timer inside */}
+        {/* Writing Prompt + Timer */}
         {currentQuestion && (
           <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
             <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl text-white font-semibold">
-                Writing Prompt:
-              </h2>
-              {/* Timer integrated in problem statement */}
+              <h2 className="text-xl text-white font-semibold">Writing Prompt:</h2>
               <div
                 className={`p-2 rounded-lg ${
                   timeLeft > 20
@@ -160,9 +132,7 @@ export default function SoloPage() {
                     : "bg-red-700 animate-pulse"
                 } ml-4`}
               >
-                <div className="text-xl font-mono text-white">
-                  {formatTime(timeLeft)}
-                </div>
+                <div className="text-xl font-mono text-white">{formatTime(timeLeft)}</div>
                 {timeLeft <= 20 && (
                   <div className="text-xs text-white text-center">
                     {timeLeft <= 10 ? "Time almost up!" : "Finish soon!"}
@@ -174,34 +144,15 @@ export default function SoloPage() {
           </div>
         )}
 
-        {/* Final Answer */}
+        {/* Essay Input */}
         <div className="flex flex-col bg-white bg-opacity-15 rounded-md p-4 mb-4 h-full border-2 border-blue-400 shadow-lg">
           <h3 className="text-xl text-white font-semibold mb-2">Your Essay</h3>
-          <div className="flex grow flex-col space-y-3">
-            <textarea
-              value={finalAnswer}
-              onChange={(e) => setFinalAnswer(e.target.value)}
-              placeholder="Enter your response here..."
-              className="w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg"
-            />
-            {/* <button
-              onClick={() => handleNextQuestion()}
-              disabled={
-                !finalAnswer.trim() ||
-                !scratchboardContent.trim() ||
-                evaluationComplete
-              }
-              className={`px-4 py-3 rounded-md text-lg font-medium ${
-                finalAnswer.trim() &&
-                scratchboardContent.trim() &&
-                !evaluationComplete
-                  ? "bg-blue-600 hover:bg-blue-700 text-white"
-                  : "bg-gray-700 text-gray-400 cursor-not-allowed"
-              }`}
-            >
-              Next Question
-            </button> */}
-          </div>
+          <textarea
+            value={finalAnswer}
+            onChange={(e) => setFinalAnswer(e.target.value)}
+            placeholder="Enter your response here..."
+            className="w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg"
+          />
         </div>
       </div>
     </div>
