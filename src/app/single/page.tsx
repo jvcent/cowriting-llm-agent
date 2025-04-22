@@ -131,21 +131,18 @@ export default function SinglePage() {
         {
           id: tempId,
           sender: "ai",
-          text: "...",
+          text,
           agentId: agent.id,
           timestamp: new Date().toISOString(),
         },
       ]);
 
-      // Mark typing, then immediately replace with final text
+      // Add typing animation
       setTypingMessageIds((prev) => [...prev, tempId]);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempId
-            ? { ...m, text, timestamp: new Date().toISOString() }
-            : m
-        )
-      );
+      // Remove typing animation after a short delay
+      setTimeout(() => {
+        setTypingMessageIds((prev) => prev.filter((id) => id !== tempId));
+      }, 1000);
     },
     [getUniqueMessageId]
   );
@@ -263,7 +260,13 @@ export default function SinglePage() {
             : m
         )
       );
+
+      // Add typing animation
       setTypingMessageIds((prev) => [...prev, tempId]);
+      // Remove typing animation after a short delay
+      setTimeout(() => {
+        setTypingMessageIds((prev) => prev.filter((id) => id !== tempId));
+      }, 1000);
     } catch (err) {
       console.error(err);
       setMessages((prev) => prev.filter((m) => m.text !== "..."));
@@ -405,7 +408,13 @@ export default function SinglePage() {
           : m
       )
     );
-    setTypingMessageIds((p) => [...p, msgId]);
+
+    // Add typing animation
+    setTypingMessageIds((prev) => [...prev, msgId]);
+    // Remove typing animation after a short delay
+    setTimeout(() => {
+      setTypingMessageIds((prev) => prev.filter((id) => id !== msgId));
+    }, 1000);
   };
 
   // Essay change handler (word‑count based feedback trigger)

@@ -62,7 +62,12 @@ export default function SoloPage() {
       setTimeout(startNewRound, 500);
       return;
     }
-    if (usedQuestionIndices.length >= allQuestions.length) {
+
+    // Only navigate to completed if we've actually used all questions
+    if (
+      allQuestions.length > 0 &&
+      usedQuestionIndices.length >= allQuestions.length
+    ) {
       router.push("/completed");
       return;
     }
@@ -80,10 +85,10 @@ export default function SoloPage() {
 
   // Initialize first question when loaded
   useEffect(() => {
-    if (loadedQuestions) {
+    if (loadedQuestions && allQuestions.length > 0) {
       startNewRound();
     }
-  }, [loadedQuestions, startNewRound]);
+  }, [loadedQuestions, allQuestions, startNewRound]);
 
   // Proceed to next question
   const handleNextQuestion = useCallback(() => {

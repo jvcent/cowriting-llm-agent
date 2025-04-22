@@ -208,33 +208,26 @@ export default function GroupPage() {
     async (agent: Agent, text: string) => {
       const messageId = getUniqueMessageId();
 
-      // Insert placeholder "..."
+      // Insert message with final text immediately
       setMessages((prev) => [
         ...prev,
         {
           id: messageId,
           sender: "ai",
-          text: "...",
+          text,
           agentId: agent.id,
           timestamp: new Date().toISOString(),
         },
       ]);
 
-      // Tiny delay (optional) so user sees "..."
-      await new Promise((res) => setTimeout(res, 200));
-
-      // Replace "..." with the final text
-      setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, text } : m))
-      );
-
-      // Mark this message as typing so Typewriter can animate
+      // Add typing animation
       setTypingMessageIds((prev) => [...prev, messageId]);
-
-      // Wait until typing finishes before returning
-      await waitForTypingToFinish(messageId);
+      // Remove typing animation after a short delay
+      setTimeout(() => {
+        setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
+      }, 1000);
     },
-    [getUniqueMessageId, waitForTypingToFinish]
+    [getUniqueMessageId]
   );
 
   // ----------------------------------------------------------------
@@ -282,9 +275,7 @@ export default function GroupPage() {
       const selectedTopic =
         chosenSet === "creative"
           ? creativeTopics[randomKey as keyof typeof creativeTopics]
-          : argumentativeTopics[
-              randomKey as keyof typeof argumentativeTopics
-            ];
+          : argumentativeTopics[randomKey as keyof typeof argumentativeTopics];
       setCurrentQuestion(randomKey);
       setCurrentAgents(selectedTopic);
 
@@ -386,35 +377,29 @@ export default function GroupPage() {
   
   Now please respond in-character as "${agent.name}".`;
 
-      // Insert placeholder message
+      // Call the AI service for the final text
+      const aiResponseText = await callAgentForResponse(agent, prompt);
+      if (feedbackSessionId !== activeFeedback) break;
+
+      // Insert message with final text immediately
       const messageId = getUniqueMessageId();
       setMessages((prev) => [
         ...prev,
         {
           id: messageId,
           sender: "ai",
-          text: "...",
+          text: aiResponseText,
           agentId: agent.id,
           timestamp: new Date().toISOString(),
         },
       ]);
 
-      // Call the AI service for the final text
-      const aiResponseText = await callAgentForResponse(agent, prompt);
-      if (feedbackSessionId !== activeFeedback) break;
-
-      // Replace the placeholder with final text
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId ? { ...m, text: aiResponseText } : m
-        )
-      );
-
-      // Mark as typing for the typewriter effect
+      // Add typing animation
       setTypingMessageIds((prev) => [...prev, messageId]);
-
-      // Wait for the typewriter effect to finish
-      await waitForTypingToFinish(messageId);
+      // Remove typing animation after a short delay
+      setTimeout(() => {
+        setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
+      }, 1000);
 
       // Optional: add a small delay to ensure a clean break
       await new Promise((res) => setTimeout(res, 300));
@@ -465,31 +450,30 @@ export default function GroupPage() {
 
     // Have each agent provide feedback without showing a user message
     for (const agent of currentAgents) {
+      const aiResponseText = await callAgentForResponse(
+        agent,
+        `Please provide brief, constructive feedback on what has been written so far: "${text}"`
+      );
+
       const messageId = getUniqueMessageId();
       setMessages((prev) => [
         ...prev,
         {
           id: messageId,
           sender: "ai",
-          text: "...",
+          text: aiResponseText,
           agentId: agent.id,
           timestamp: new Date().toISOString(),
         },
       ]);
 
-      const aiResponseText = await callAgentForResponse(
-        agent,
-        `Please provide brief, constructive feedback on what has been written so far: "${text}"`
-      );
-
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId ? { ...m, text: aiResponseText } : m
-        )
-      );
-
+      // Add typing animation
       setTypingMessageIds((prev) => [...prev, messageId]);
-      await waitForTypingToFinish(messageId);
+      // Remove typing animation after a short delay
+      setTimeout(() => {
+        setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
+      }, 1000);
+
       await new Promise((res) => setTimeout(res, 300));
     }
   };
@@ -501,31 +485,30 @@ export default function GroupPage() {
 
     // Have each agent provide starter suggestions without showing a user message
     for (const agent of currentAgents) {
+      const aiResponseText = await callAgentForResponse(
+        agent,
+        `The user is looking at the writing prompt: "${currentQuestion}". Without mentioning that they haven't started yet, provide encouraging suggestions for how to approach this prompt and get started writing.`
+      );
+
       const messageId = getUniqueMessageId();
       setMessages((prev) => [
         ...prev,
         {
           id: messageId,
           sender: "ai",
-          text: "...",
+          text: aiResponseText,
           agentId: agent.id,
           timestamp: new Date().toISOString(),
         },
       ]);
 
-      const aiResponseText = await callAgentForResponse(
-        agent,
-        `The user is looking at the writing prompt: "${currentQuestion}". Without mentioning that they haven't started yet, provide encouraging suggestions for how to approach this prompt and get started writing.`
-      );
-
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId ? { ...m, text: aiResponseText } : m
-        )
-      );
-
+      // Add typing animation
       setTypingMessageIds((prev) => [...prev, messageId]);
-      await waitForTypingToFinish(messageId);
+      // Remove typing animation after a short delay
+      setTimeout(() => {
+        setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
+      }, 1000);
+
       await new Promise((res) => setTimeout(res, 300));
     }
   }, [
@@ -533,7 +516,6 @@ export default function GroupPage() {
     currentQuestion,
     getUniqueMessageId,
     callAgentForResponse,
-    waitForTypingToFinish,
   ]);
 
   // Check for idle time and low word count
