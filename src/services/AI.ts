@@ -1,7 +1,5 @@
 import { Message } from "@/utils/types";
 
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
-
 // Define AI models with their configuration
 export const AI_MODELS = {
   CLAUDE_HAIKU: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 interface TypewriterTextProps {
   text: string;
@@ -72,76 +72,65 @@ export default function TypewriterText({
   };
 
   useEffect(() => {
-    // Store the text in ref to make it stable
+    // Move startAnimation inside useEffect
+    const startAnimation = () => {
+      let lastTime = performance.now();
+
+      const animate = (time: number) => {
+        if (!isMountedRef.current) return;
+
+        const elapsed = time - lastTime;
+
+        const chunk = chunksRef.current[chunkIndexRef.current] || "";
+        const chunkLength = chunk.length;
+
+        const randomFactor = Math.random() * 0.5 + 0.5;
+        const baseInterval = Math.max(20, 100 - speed * 2);
+        const interval =
+          baseInterval * randomFactor * (chunkLength > 15 ? 1.2 : 0.8);
+
+        if (elapsed > interval) {
+          lastTime = time;
+
+          if (chunkIndexRef.current < chunksRef.current.length) {
+            const nextChunk = chunksRef.current[chunkIndexRef.current];
+            setDisplayText((prev) => prev + nextChunk);
+            chunkIndexRef.current++;
+
+            if (onCharacterTyped) {
+              onCharacterTyped();
+            }
+          } else if (!isComplete) {
+            setIsComplete(true);
+            if (onComplete) {
+              onComplete();
+            }
+            return;
+          }
+        }
+
+        animationRef.current = requestAnimationFrame(animate);
+      };
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
     textRef.current = text;
-
-    // Create chunks for LLM-like generation
     chunksRef.current = createNaturalChunks(text);
-
-    // Set mounted flag
     isMountedRef.current = true;
     chunkIndexRef.current = 0;
     setDisplayText("");
     setIsComplete(false);
 
-    // Start animation
     startAnimation();
 
     return () => {
-      // Clean up animation on unmount
       isMountedRef.current = false;
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [text, speed, onComplete, startAnimation]);
-
-  const startAnimation = () => {
-    let lastTime = performance.now();
-
-    const animate = (time: number) => {
-      if (!isMountedRef.current) return;
-
-      const elapsed = time - lastTime;
-
-      // Randomize the intervals to simulate natural LLM generation
-      // Shorter chunks appear faster, longer chunks need more time
-      const chunk = chunksRef.current[chunkIndexRef.current] || "";
-      const chunkLength = chunk.length;
-
-      // Base interval on chunk length and add randomness
-      // Faster overall, with variability for natural flow
-      const randomFactor = Math.random() * 0.5 + 0.5; // 0.5 to 1.0
-      const baseInterval = Math.max(20, 100 - speed * 2); // Faster base speed
-      const interval =
-        baseInterval * randomFactor * (chunkLength > 15 ? 1.2 : 0.8);
-
-      if (elapsed > interval) {
-        lastTime = time;
-
-        if (chunkIndexRef.current < chunksRef.current.length) {
-          const nextChunk = chunksRef.current[chunkIndexRef.current];
-          setDisplayText((prev) => prev + nextChunk);
-          chunkIndexRef.current++;
-
-          // Call callback for progress tracking
-          if (onCharacterTyped) {
-            onCharacterTyped();
-          }
-        } else if (!isComplete) {
-          setIsComplete(true);
-          if (onComplete) {
-            onComplete();
-          }
-          return; // Stop animation
-        }
-      }
-
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-  };
+  }, [text, speed, onComplete, onCharacterTyped]);
 
   return <div className="whitespace-pre-wrap">{displayText}</div>;
 }

@@ -33,7 +33,6 @@ export default function GroupPage() {
 
   // State for chat messages & tracking
   const [messages, setMessages] = useState<Message[]>([]);
-  const [completedMessageIds, setCompletedMessageIds] = useState<number[]>([]);
   const [typingMessageIds, setTypingMessageIds] = useState<number[]>([]);
   const typingMessageIdsRef = useRef<number[]>([]);
   const nextMessageIdRef = useRef(3);
@@ -49,6 +48,19 @@ export default function GroupPage() {
   const manualScrollOverrideRef = useRef(false);
   const lastManualScrollTimeRef = useRef(0);
   const forceScrollToBottomRef = useRef(false);
+
+  const scrollToBottom = (force = false) => {
+    const chatContainer = chatContainerRef.current;
+    if (!chatContainer) return;
+
+    // If user manually scrolled up, do not auto-scroll unless `force` is true
+    if (manualScrollOverrideRef.current && !force) return;
+
+    if (force || forceScrollToBottomRef.current || !userHasScrolled) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      forceScrollToBottomRef.current = false;
+    }
+  };
 
   // Discussion states
   const [isQuestioningEnabled, setIsQuestioningEnabled] = useState(true);
@@ -71,7 +83,6 @@ export default function GroupPage() {
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [currentAgents, setCurrentAgents] = useState<Agent[]>([]);
   const [loadedQuestions, setLoadedQuestions] = useState(false);
-  const [questionNumber, setQuestionNumber] = useState(1);
 
   // Add start time tracking
   const startTimeRef = useRef(Date.now());
@@ -103,16 +114,6 @@ export default function GroupPage() {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  // Once the conversation has a new user message, automatically scroll
-  useEffect(() => {
-    const latestMsg = messages[messages.length - 1];
-    if (latestMsg && latestMsg.sender === "user") {
-      manualScrollOverrideRef.current = false;
-      lastManualScrollTimeRef.current = Date.now();
-      setTimeout(() => scrollToBottom(true), 100);
-    }
-  }, [messages.length]);
-
   // Keep typing IDs in a ref for easy checks
   useEffect(() => {
     typingMessageIdsRef.current = typingMessageIds;
@@ -135,19 +136,6 @@ export default function GroupPage() {
   // ----------------------------------------------------------------
   // Chat Container Scrolling
   // ----------------------------------------------------------------
-
-  const scrollToBottom = (force = false) => {
-    const chatContainer = chatContainerRef.current;
-    if (!chatContainer) return;
-
-    // If user manually scrolled up, do not auto-scroll unless `force` is true
-    if (manualScrollOverrideRef.current && !force) return;
-
-    if (force || forceScrollToBottomRef.current || !userHasScrolled) {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-      forceScrollToBottomRef.current = false;
-    }
-  };
 
   // If the user scrolls up, disable auto-scroll
   const handleScroll = () => {
@@ -177,21 +165,6 @@ export default function GroupPage() {
   // ----------------------------------------------------------------
   // Timer
   // ----------------------------------------------------------------
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      if (isQuestioningEnabled) {
-        autoSubmitTimeoutAnswer();
-      }
-      return;
-    }
-    if (roundEndedRef.current) return;
-
-    const t = setTimeout(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
-    return () => clearTimeout(t);
-  }, [timeLeft, isQuestioningEnabled]);
-
   // If time runs out before user is done
   const autoSubmitTimeoutAnswer = () => {
     roundEndedRef.current = true;
@@ -214,6 +187,21 @@ export default function GroupPage() {
       setFinalAnswer("");
     }
   };
+
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      if (isQuestioningEnabled) {
+        autoSubmitTimeoutAnswer();
+      }
+      return;
+    }
+    if (roundEndedRef.current) return;
+
+    const t = setTimeout(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft, isQuestioningEnabled, autoSubmitTimeoutAnswer]);
 
   // ----------------------------------------------------------------
   // Question / Round Setup
@@ -241,7 +229,6 @@ export default function GroupPage() {
 
     // Reset chat states
     setMessages([]);
-    setCompletedMessageIds([]);
     setTypingMessageIds([]);
     setScratchboardContent("");
     setInput("");
@@ -253,17 +240,18 @@ export default function GroupPage() {
 
     // Decide which set we'll use (creative vs argumentative)
     const chosenSet = overrideSet ?? currentQuestionSet;
-    let topics: TopicMap =
-      chosenSet === "creative" ? creativeTopics : argumentativeTopics;
+    const topics = Object.keys(
+      chosenSet === "creative" ? creativeTopics : argumentativeTopics
+    );
+    const randomKey = topics[Math.floor(Math.random() * topics.length)];
+    const selectedTopic =
+      chosenSet === "creative"
+        ? creativeTopics[randomKey as keyof typeof creativeTopics]
+        : argumentativeTopics[randomKey as keyof typeof argumentativeTopics];
+    setCurrentQuestion(randomKey);
+    setCurrentAgents(selectedTopic);
 
     try {
-      // Pick a random question (key in the object)
-      const keys = Object.keys(topics);
-      const randomKey = keys[Math.floor(Math.random() * keys.length)];
-      const selectedTopic = topics[randomKey];
-      setCurrentQuestion(randomKey);
-      setCurrentAgents(selectedTopic);
-
       // Have each agent introduce themselves
       if (selectedTopic.length > 0) {
         for (const agent of selectedTopic) {
@@ -284,7 +272,7 @@ export default function GroupPage() {
     if (loadedQuestions) {
       startNewRound();
     }
-  }, [loadedQuestions]);
+  }, [loadedQuestions, startNewRound]);
 
   // Move to next question or to "break" route
   const handleNextQuestion = () => {
@@ -302,7 +290,6 @@ export default function GroupPage() {
 
     if (currentQuestionSet === "creative") {
       setCurrentQuestionSet("argumentative");
-      setQuestionNumber(2);
       startTimeRef.current = Date.now(); // Reset start time
       startNewRound("argumentative");
     } else {
@@ -504,26 +491,6 @@ export default function GroupPage() {
     }
   };
 
-  // Check for idle time and low word count
-  useEffect(() => {
-    if (roundEndedRef.current || hasGivenStarterFeedback) return;
-
-    const checkIdleInterval = setInterval(() => {
-      const currentTime = Date.now();
-      const currentWordCount = getWordCount(finalAnswer);
-
-      if (
-        currentWordCount < WORD_COUNT_THRESHOLD &&
-        currentTime - lastWritingTime >= IDLE_THRESHOLD
-      ) {
-        triggerStarterFeedback();
-        setHasGivenStarterFeedback(true);
-      }
-    }, 5000); // Check every 5 seconds
-
-    return () => clearInterval(checkIdleInterval);
-  }, [lastWritingTime, finalAnswer, hasGivenStarterFeedback]);
-
   const triggerStarterFeedback = async () => {
     if (roundEndedRef.current) return;
 
@@ -559,6 +526,31 @@ export default function GroupPage() {
       await new Promise((res) => setTimeout(res, 300));
     }
   };
+
+  // Check for idle time and low word count
+  useEffect(() => {
+    if (roundEndedRef.current || hasGivenStarterFeedback) return;
+
+    const checkIdleInterval = setInterval(() => {
+      const currentTime = Date.now();
+      const currentWordCount = getWordCount(finalAnswer);
+
+      if (
+        currentWordCount < WORD_COUNT_THRESHOLD &&
+        currentTime - lastWritingTime >= IDLE_THRESHOLD
+      ) {
+        triggerStarterFeedback();
+        setHasGivenStarterFeedback(true);
+      }
+    }, 5000);
+
+    return () => clearInterval(checkIdleInterval);
+  }, [
+    lastWritingTime,
+    finalAnswer,
+    hasGivenStarterFeedback,
+    triggerStarterFeedback,
+  ]);
 
   // Track final answer as the user types
   const handleFinalAnswerChange = (
@@ -700,7 +692,7 @@ export default function GroupPage() {
                   {typingMessageIds.includes(msg.id) ? (
                     <TypewriterTextWrapper
                       key={`typewriter-${msg.id}`}
-                      text={msg.text}
+                      text={msg.text ?? ""}
                       speed={50}
                       messageId={msg.id}
                       onTypingProgress={() => {
@@ -714,7 +706,6 @@ export default function GroupPage() {
                           prev.filter((id) => id !== msg.id)
                         );
                         setTimeout(() => scrollToBottom(true), 50);
-                        setCompletedMessageIds((prev) => [...prev, msg.id]);
                         scrollToBottom(true);
                       }}
                     />

@@ -96,11 +96,12 @@ export default function Terms() {
             University of Toronto Research Project Participation Consent Form
           </p>
           <p className="mb-4">
-            Researchers at the University of Toronto are studying how people's
-            usage of Artificial Intelligence impacts their creative thinking
-            abilities. Nowadays, people are often offloading tedious cognitive
-            tasks to various AI tools to boost productivity and save time. Our
-            project investigates the implications this has on human creativity.
+            Researchers at the University of Toronto are studying how
+            people&apos;s usage of Artificial Intelligence impacts their
+            creative thinking abilities. Nowadays, people are often offloading
+            tedious cognitive tasks to various AI tools to boost productivity
+            and save time. Our project investigates the implications this has on
+            human creativity.
           </p>
           {/* ... additional terms content ... */}
           <p className="mb-4">
@@ -123,10 +124,11 @@ export default function Terms() {
             external tools (e.g., ChatGPT).
           </p>
           <p className="mb-4">
-            We're just interested in your best effort and what you learn. The
-            experiment will be ruined if you take screenshots or use external
-            tools to do this task. So please do not do so! In fact, you have no
-            reason to do so because you are not paid based on performance.
+            We&apos;re just interested in your best effort and what you learn.
+            The experiment will be ruined if you take screenshots or use
+            external tools to do this task. So please do not do so! In fact, you
+            have no reason to do so because you are not paid based on
+            performance.
           </p>
           <p className="mb-4 text-red-500">
             Please do not refresh the page. Refreshing the page will lose any

@@ -718,7 +718,7 @@ export default function SinglePage() {
                   {typingMessageIds.includes(msg.id) ? (
                     <TypewriterTextWrapper
                       key={`typewriter-${msg.id}`}
-                      text={msg.text}
+                      text={msg.text ?? ""}
                       speed={20}
                       messageId={msg.id}
                       onTypingProgress={(progress) => {
