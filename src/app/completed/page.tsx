@@ -183,7 +183,7 @@ export default function CompletedPage() {
                 <label className="block mb-2">
                   If you received any assistance during the writing task, please
                   describe what you found helpful and what could have been
-                  improved:
+                  improved, otherwise say that you did not receive any assistance:
                 </label>
                 <textarea
                   name="prosAndCons"
