@@ -9,6 +9,7 @@ import { Message } from "@/utils/types";
 import { creativeTopics } from "@/data/creative";
 import { argumentativeTopics } from "@/data/argumentative";
 import { useFlow } from "@/context/FlowContext";
+import { cleanText } from "@/utils/text";
 
 // Types
 interface Agent {
@@ -89,12 +90,20 @@ export default function SinglePage() {
       if (!c) return;
       if (manualScrollOverrideRef.current && !force) return;
       if (force || forceScrollToBottomRef.current || !userHasScrolled) {
-        c.scrollTop = c.scrollHeight;
+        c.scrollTo({
+          top: c.scrollHeight,
+          behavior: "smooth",
+        });
         forceScrollToBottomRef.current = false;
       }
     },
     [userHasScrolled]
   );
+
+  // Add auto-scroll effect when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const handleScroll = () => {
     const c = chatContainerRef.current;
@@ -493,7 +502,10 @@ export default function SinglePage() {
             value={finalAnswer}
             onChange={handleEssayChange}
             placeholder="Write your response here…"
-            className="w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg"
+            disabled={timeLeft === 0}
+            className={`w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg ${
+              timeLeft === 0 ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           />
         </div>
       </div>
@@ -564,13 +576,15 @@ export default function SinglePage() {
                   {typingMessageIds.includes(msg.id) ? (
                     <TypewriterTextWrapper
                       key={msg.id}
-                      text={msg.text ?? ""}
+                      text={cleanText(msg.text ?? "")}
                       speed={50}
                       onTypingProgress={() => {}}
                       onTypingComplete={() => {}}
                     />
                   ) : (
-                    <div className="whitespace-pre-wrap">{msg.text}</div>
+                    <div className="whitespace-pre-wrap">
+                      {cleanText(msg.text ?? "")}
+                    </div>
                   )}
                 </div>
               </div>

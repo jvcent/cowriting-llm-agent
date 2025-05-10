@@ -13,6 +13,7 @@ import { Message } from "@/utils/types";
 import { creativeTopics } from "@/data/creative";
 import { argumentativeTopics } from "@/data/argumentative";
 import { useFlow } from "@/context/FlowContext";
+import { cleanText } from "@/utils/text";
 
 // ----------------------------------------------------------------
 // Types
@@ -22,6 +23,7 @@ interface Agent {
   name: string;
   avatar: string;
   systemPrompt: string;
+  introMessage: string;
 }
 
 // ----------------------------------------------------------------
@@ -62,10 +64,18 @@ export default function GroupPage() {
     if (manualScrollOverrideRef.current && !force) return;
 
     if (force || forceScrollToBottomRef.current || !userHasScrolled) {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: "smooth",
+      });
       forceScrollToBottomRef.current = false;
     }
   };
+
+  // Add auto-scroll effect when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Discussion states
   const [isQuestioningEnabled, setIsQuestioningEnabled] = useState(true);
@@ -283,12 +293,11 @@ export default function GroupPage() {
       });
 
       try {
-        // Each chosen agent introduces themselves
+        // Each chosen agent introduces themselves sequentially using their introMessage
         for (const agent of chosenAgents) {
-          await postStaticMessageSequentially(
-            agent,
-            `Hi! I'm ${agent.name}. I'm here to help you with this ${chosenSet} writing task. I'll provide feedback and suggestions as you write.`
-          );
+          await postStaticMessageSequentially(agent, agent.introMessage);
+          // Add a delay between each agent's introduction
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
 
         setIsQuestioningEnabled(true);
@@ -606,7 +615,10 @@ export default function GroupPage() {
               value={finalAnswer}
               onChange={handleFinalAnswerChange}
               placeholder="Write your response here…"
-              className="w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg"
+              disabled={timeLeft === 0}
+              className={`w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg ${
+                timeLeft === 0 ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             />
           </div>
         </div>
@@ -685,14 +697,15 @@ export default function GroupPage() {
                   {typingMessageIds.includes(msg.id) ? (
                     <TypewriterTextWrapper
                       key={msg.id}
-                      text={msg.text ?? ""}
+                      text={cleanText(msg.text ?? "")}
                       speed={50}
                       onTypingProgress={() => {}}
                       onTypingComplete={() => {}}
                     />
                   ) : (
-                    // If not typing, just render the text
-                    <div className="whitespace-pre-wrap">{msg.text}</div>
+                    <div className="whitespace-pre-wrap">
+                      {cleanText(msg.text ?? "")}
+                    </div>
                   )}
                 </div>
               </div>
