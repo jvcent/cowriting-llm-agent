@@ -96,12 +96,9 @@ export default function Terms() {
             University of Toronto Research Project Participation Consent Form
           </p>
           <p className="mb-4">
-            Researchers at the University of Toronto are studying how
-            people&apos;s usage of Artificial Intelligence impacts their
-            creative thinking abilities. Nowadays, people are often offloading
-            tedious cognitive tasks to various AI tools to boost productivity
-            and save time. Our project investigates the implications this has on
-            human creativity.
+          The purpose of this project is to study how interactions with different types of AI collaborators affect people’s performance in a creative writing task.
+          <br />
+         This study aims to explore whether interacting with multiple AI “voices” can simulate the benefits of human group collaboration—such as increased idea diversity and richer discussions—while also examining potential drawbacks like idea homogenization and over-reliance on AI-generated content.
           </p>
           {/* ... additional terms content ... */}
           <p className="mb-4">

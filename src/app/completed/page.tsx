@@ -8,6 +8,7 @@ type SurveyAnswers = {
   inputHelpfulness: string;
   ideaPrompting: string;
   overwhelmed: string;
+  prosAndCons: string;
 };
 
 export default function CompletedPage() {
@@ -26,6 +27,7 @@ export default function CompletedPage() {
     inputHelpfulness: "",
     ideaPrompting: "",
     overwhelmed: "",
+    prosAndCons: "",
   });
 
   // Log all saved data when component mounts
@@ -37,7 +39,9 @@ export default function CompletedPage() {
     console.log("=====================");
   }, [soloEssays, singleEssays, groupEssays]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement>
+  ): void => {
     const { name, value } = e.target;
     setSurveyAnswers((prev) => ({
       ...prev,
@@ -172,6 +176,24 @@ export default function CompletedPage() {
                   <option value="moderately">Moderately</option>
                   <option value="very">Very</option>
                 </select>
+              </div>
+
+              {/* Question 5 - Open Ended */}
+              <div>
+                <label className="block mb-2">
+                  If you received any assistance during the writing task, please
+                  describe what you found helpful and what could have been
+                  improved:
+                </label>
+                <textarea
+                  name="prosAndCons"
+                  value={surveyAnswers.prosAndCons}
+                  onChange={handleInputChange}
+                  required
+                  rows={4}
+                  className="w-full p-3 rounded border border-gray-500 bg-gray-800 text-white resize-none"
+                  placeholder="Please share your thoughts..."
+                />
               </div>
 
               <button
