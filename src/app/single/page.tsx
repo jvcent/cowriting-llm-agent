@@ -492,7 +492,7 @@ export default function SinglePage() {
           <textarea
             value={finalAnswer}
             onChange={handleEssayChange}
-            placeholder="Enter your response here..."
+            placeholder="Write your response here…"
             className="w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg"
           />
         </div>

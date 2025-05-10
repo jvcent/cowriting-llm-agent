@@ -13,6 +13,8 @@ export default function Terms() {
   const [captchaPassed, setCaptchaPassed] = useState(false);
   const [userCaptchaInput, setUserCaptchaInput] = useState("");
   const [captchaSolution, setCaptchaSolution] = useState("");
+  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+  const [introAccepted, setIntroAccepted] = useState(false);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -43,10 +45,16 @@ export default function Terms() {
   };
 
   const handleContinue = () => {
-    // Randomly redirect to one of the three experiences
+    // Randomly select one of the three experiences
     const routes = ["/single", "/group", "/solo"];
     const randomIndex = Math.floor(Math.random() * routes.length);
-    router.push(routes[randomIndex]);
+    setSelectedRoute(routes[randomIndex]);
+  };
+
+  const handleStartExperiment = () => {
+    if (selectedRoute) {
+      router.push(selectedRoute);
+    }
   };
 
   // If captcha hasn't been passed yet, show the captcha test
@@ -83,6 +91,65 @@ export default function Terms() {
     );
   }
 
+  // If a route has been selected, show the introduction page
+  if (selectedRoute) {
+    const introText = {
+      "/single":
+        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing. The topics are drawn from the New York Times Student Opinion Series to ensure they are open-ended enough to encourage diverse perspectives while remaining accessible to participants from all backgrounds.\n\nAs you work on your responses, an AI agent will appear in the chat window on the right to provide feedback and offer suggestions to support your writing process. You are welcome to incorporate any of its suggestions or ideas as you see fit. Do your best to write at least 2 paragraphs.",
+      "/group":
+        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing. The topics are drawn from the New York Times Student Opinion Series to ensure they are open-ended enough to encourage diverse perspectives while remaining accessible to participants from all backgrounds.\n\nAs you work on your responses, AI agents will appear in the chat window on the right to provide feedback, offer suggestions, and engage in discussion to support your writing process. You are welcome to incorporate any of their suggestions or ideas as you see fit. Do your best to write at least 2 paragraphs.",
+      "/solo":
+        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing. The topics are drawn from the New York Times Student Opinion Series to ensure they are open-ended enough to encourage diverse perspectives while remaining accessible to participants from all backgrounds.\n\nYou must refrain from using any external tools or aid during your writing tasks. Do your best to write at least 2 paragraphs.",
+    };
+
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-8 flex flex-col items-center justify-center">
+        <div className="w-full max-w-3xl bg-white bg-opacity-10 rounded-xl p-8 shadow-lg text-white">
+          <h1 className="text-3xl font-bold text-center mb-6">Introduction</h1>
+          <div className="bg-white bg-opacity-5 p-6 rounded-lg mb-6">
+            {introText[selectedRoute as keyof typeof introText]
+              .split("\n\n")
+              .map((paragraph, idx) => (
+                <p key={idx} className="text-lg mb-4">
+                  {paragraph}
+                </p>
+              ))}
+            <p className="text-sm text-gray-300">
+              Please read the instructions carefully before proceeding.
+            </p>
+          </div>
+
+          <div className="flex items-center mb-8">
+            <input
+              type="checkbox"
+              id="accept-intro"
+              checked={introAccepted}
+              onChange={() => setIntroAccepted(!introAccepted)}
+              className="mr-3 h-5 w-5"
+            />
+            <label htmlFor="accept-intro" className="text-white">
+              I understand the instructions above and am ready to continue.
+            </label>
+          </div>
+
+          <div className="flex justify-center">
+            <button
+              onClick={handleStartExperiment}
+              disabled={!introAccepted}
+              className={`px-6 py-3 rounded-xl border-2 transition-all ${
+                introAccepted
+                  ? "bg-purple-600 hover:bg-purple-700 text-white rounded-md cursor-pointer"
+                  : "bg-gray-700 border-gray-600 cursor-not-allowed opacity-50"
+              }`}
+            >
+              Start Experiment
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // If captcha passed, show the Terms and Conditions page
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-8 flex flex-col items-center justify-center">
@@ -96,9 +163,15 @@ export default function Terms() {
             University of Toronto Research Project Participation Consent Form
           </p>
           <p className="mb-4">
-          The purpose of this project is to study how interactions with different types of AI collaborators affect people’s performance in a creative writing task.
-          <br />
-         This study aims to explore whether interacting with multiple AI “voices” can simulate the benefits of human group collaboration—such as increased idea diversity and richer discussions—while also examining potential drawbacks like idea homogenization and over-reliance on AI-generated content.
+            The purpose of this project is to study how interactions with
+            different types of AI collaborators affect people's performance in a
+            creative writing task.
+            <br />
+            This study aims to explore whether interacting with multiple AI
+            "voices" can simulate the benefits of human group collaboration—such
+            as increased idea diversity and richer discussions—while also
+            examining potential drawbacks like idea homogenization and
+            over-reliance on AI-generated content.
           </p>
           {/* ... additional terms content ... */}
           <p className="mb-4">
