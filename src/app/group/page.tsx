@@ -97,6 +97,7 @@ export default function GroupPage() {
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [currentAgents, setCurrentAgents] = useState<Agent[]>([]);
   const [loadedQuestions, setLoadedQuestions] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
 
   // Add start time tracking
   const startTimeRef = useRef(Date.now());
@@ -354,7 +355,7 @@ export default function GroupPage() {
             },
           ],
           {
-            systemPrompt: agent.systemPrompt,
+            systemPrompt: `${agent.systemPrompt}\n\nIMPORTANT INSTRUCTIONS:\n1. Always address the user directly using "you" instead of referring to them as "the user"\n2. Keep your responses concise and limited to 50 words or less`,
             model: currentModel,
           }
         );
@@ -374,19 +375,27 @@ export default function GroupPage() {
     // Randomize the order in which agents respond
     const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
 
+    // Process agents sequentially
     for (const agent of shuffledAgents) {
       if (feedbackSessionId !== activeFeedback) break;
 
+      // Get conversation history up to this point
       const conversationSoFar = messages
-        .map((m) => `${m.sender.toUpperCase()}: ${m.text}`)
+        .map((m) => {
+          const senderName =
+            m.sender === "ai"
+              ? currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI"
+              : "USER";
+          return `${senderName}: ${m.text}`;
+        })
         .join("\n");
 
       const prompt = `CONVERSATION SO FAR:
-  ${conversationSoFar}
-  
-  USER just asked: "${userMessage}"
-  
-  Now please respond in-character as "${agent.name}".`;
+${conversationSoFar}
+
+USER just asked: "${userMessage}"
+
+Now please respond in-character as "${agent.name}". Consider the previous messages in the conversation when forming your response.`;
 
       // Call the AI service for the final text
       const aiResponseText = await callAgentForResponse(agent, prompt);
@@ -412,8 +421,8 @@ export default function GroupPage() {
         setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
       }, 1000);
 
-      // Optional: add a small delay to ensure a clean break
-      await new Promise((res) => setTimeout(res, 300));
+      // Add a small delay between agent responses
+      await new Promise((res) => setTimeout(res, 500));
     }
   };
 
@@ -570,11 +579,37 @@ export default function GroupPage() {
     }
   };
 
+  // Add this effect after the other useEffect blocks
+  useEffect(() => {
+    if (timeLeft === 180 && !finalAnswer.trim()) {
+      // 2 minutes = 120 seconds, so 300 - 120 = 180
+      setShowWarning(true);
+    }
+  }, [timeLeft, finalAnswer]);
+
   // ----------------------------------------------------------------
   // Render
   // ----------------------------------------------------------------
   return (
     <div className="h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-4 flex flex-row overflow-hidden">
+      {showWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md">
+            <p className="text-lg mb-4">
+              You have not provided any response. This may result in
+              disqualification from this task and{" "}
+              <span className="text-red-600"> loss of payment.</span> Please
+              provide your answer before moving on to the next question.
+            </p>
+            <button
+              onClick={() => setShowWarning(false)}
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            >
+              I Understand
+            </button>
+          </div>
+        </div>
+      )}
       {/* Left Panel: Writing Prompt & User Text */}
       <div className="w-1/2 pr-2 flex flex-col h-full overflow-hidden">
         {/* Writing Prompt with Timer */}

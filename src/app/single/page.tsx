@@ -40,6 +40,7 @@ export default function SinglePage() {
   const [evaluationComplete, setEvaluationComplete] = useState(false);
   const [, setBotThinking] = useState(false);
   const [userHasScrolled, setUserHasScrolled] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [currentModel] = useState(AI_MODELS.CLAUDE_HAIKU.id);
   const [, setLastUserActivityTime] = useState(Date.now());
@@ -260,7 +261,10 @@ export default function SinglePage() {
             timestamp: new Date().toISOString(),
           },
         ],
-        { systemPrompt: agent.systemPrompt, model: currentModel }
+        {
+          systemPrompt: `${agent.systemPrompt}\n\nIMPORTANT INSTRUCTIONS:\n1. Always address the user directly using "you" instead of referring to them as "the user"\n2. Keep your responses concise and limited to 50 words or less`,
+          model: currentModel,
+        }
       );
 
       setMessages((prev) =>
@@ -380,6 +384,14 @@ export default function SinglePage() {
     }
   }, [lastFeedbackWordCount, hasGivenStarterFeedback, triggerStarterFeedback]);
 
+  // Add this effect after the other useEffect blocks
+  useEffect(() => {
+    if (timeLeft === 180 && !finalAnswer.trim()) {
+      // 2 minutes = 120 seconds, so 300 - 120 = 180
+      setShowWarning(true);
+    }
+  }, [timeLeft, finalAnswer]);
+
   // -----------------------------
   // AUTO‑FEEDBACK
   // -----------------------------
@@ -465,6 +477,24 @@ export default function SinglePage() {
   // -----------------------------
   return (
     <div className="h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-4 flex flex-row overflow-hidden">
+      {showWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md">
+            <p className="text-lg mb-4">
+              You have not provided any response. This may result in
+              disqualification from this task and{" "}
+              <span className="text-red-600"> loss of payment.</span> Please
+              provide your answer before moving on to the next question.
+            </p>
+            <button
+              onClick={() => setShowWarning(false)}
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            >
+              I Understand
+            </button>
+          </div>
+        </div>
+      )}
       {/* LEFT PANEL */}
       <div className="w-1/2 pr-2 flex flex-col h-full overflow-hidden">
         {currentQuestion && (

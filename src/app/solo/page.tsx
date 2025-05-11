@@ -9,15 +9,16 @@ export default function SoloPage() {
   const { addSoloEssay } = useFlow();
 
   /* ──────────────────── state ──────────────────── */
-  const [finalAnswer, setFinalAnswer] = useState("");            // essay text
-  const timerDuration = 300;                                       // seconds
-  const [timeLeft, setTimeLeft] = useState(timerDuration);       // countdown
-  const roundEndedRef = useRef(false);                           // flag: time up
-  const startTimeRef = useRef(Date.now());                       // for elapsed time
+  const [finalAnswer, setFinalAnswer] = useState(""); // essay text
+  const timerDuration = 300; // seconds
+  const [timeLeft, setTimeLeft] = useState(timerDuration); // countdown
+  const roundEndedRef = useRef(false); // flag: time up
+  const startTimeRef = useRef(Date.now()); // for elapsed time
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [usedQuestionIndices, setUsedQuestionIndices] = useState<number[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
+  const [showWarning, setShowWarning] = useState(false);
 
   const [allQuestions, setAllQuestions] = useState<string[]>([]);
   const [loadedQuestions, setLoadedQuestions] = useState(false);
@@ -31,7 +32,7 @@ export default function SoloPage() {
         const data = await res.json();
         const questions: string[] = Object.values(data).flat() as string[];
         const shuffled = questions.sort(() => 0.5 - Math.random());
-        setAllQuestions(shuffled.slice(0, 2));                   // 2‑question demo
+        setAllQuestions(shuffled.slice(0, 2)); // 2‑question demo
       } catch (err) {
         console.error(err);
         setAllQuestions([
@@ -65,9 +66,15 @@ export default function SoloPage() {
     setFinalAnswer("");
     setCurrentQuestion(allQuestions[currentQuestionIndex]);
     setTimeLeft(timerDuration);
-    roundEndedRef.current = false;               // restart timer
+    roundEndedRef.current = false; // restart timer
     startTimeRef.current = Date.now();
-  }, [loadedQuestions, allQuestions, usedQuestionIndices.length, currentQuestionIndex, router]);
+  }, [
+    loadedQuestions,
+    allQuestions,
+    usedQuestionIndices.length,
+    currentQuestionIndex,
+    router,
+  ]);
 
   /* ──────────────────── first question ──────────────────── */
   useEffect(() => {
@@ -80,7 +87,8 @@ export default function SoloPage() {
       if (currentQuestion && (force || finalAnswer.trim())) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
         addSoloEssay({
-          questionType: currentQuestionIndex === 0 ? "creative" : "argumentative",
+          questionType:
+            currentQuestionIndex === 0 ? "creative" : "argumentative",
           question: currentQuestion,
           essay: finalAnswer || "[No answer provided]",
           timeSpent: elapsed,
@@ -91,31 +99,64 @@ export default function SoloPage() {
       }
       startNewRound();
     },
-    [currentQuestion, finalAnswer, currentQuestionIndex, addSoloEssay, startNewRound]
+    [
+      currentQuestion,
+      finalAnswer,
+      currentQuestionIndex,
+      addSoloEssay,
+      startNewRound,
+    ]
   );
 
   /* ──────────────────── countdown ──────────────────── */
   useEffect(() => {
     if (timeLeft <= 0) {
-      roundEndedRef.current = true;      // stop the clock
-      return;                            // wait for user to click “Next Question”
+      roundEndedRef.current = true; // stop the clock
+      return; // wait for user to click "Next Question"
     }
-    if (roundEndedRef.current) return;   // safeguard
+    if (roundEndedRef.current) return; // safeguard
 
     const id = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(id);
   }, [timeLeft]);
 
+  // Add warning effect
+  useEffect(() => {
+    if (timeLeft === 180 && !finalAnswer.trim()) {
+      // 2 minutes = 120 seconds, so 300 - 120 = 180
+      setShowWarning(true);
+    }
+  }, [timeLeft, finalAnswer]);
+
   /* ──────────────────── render ──────────────────── */
   return (
     <div className="h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-4 flex flex-row overflow-hidden">
+      {showWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md">
+            <p className="text-lg mb-4">
+              You have not provided any response. This may result in
+              disqualification from this task and{" "}
+              <span className="text-red-600"> loss of payment.</span> Please
+              provide your answer before moving on to the next question.
+            </p>
+            <button
+              onClick={() => setShowWarning(false)}
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            >
+              I Understand
+            </button>
+          </div>
+        </div>
+      )}
       <div className="w-full pr-2 flex flex-col h-full overflow-hidden">
-
         {/* ── prompt + timer ── */}
         {currentQuestion && (
           <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
             <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl text-white font-semibold">Writing Prompt:</h2>
+              <h2 className="text-xl text-white font-semibold">
+                Writing Prompt:
+              </h2>
               <div
                 className={`p-2 rounded-lg ${
                   timeLeft > 20
@@ -125,7 +166,9 @@ export default function SoloPage() {
                     : "bg-red-700 animate-pulse"
                 } ml-4`}
               >
-                <div className="text-xl font-mono text-white">{formatTime(timeLeft)}</div>
+                <div className="text-xl font-mono text-white">
+                  {formatTime(timeLeft)}
+                </div>
                 {timeLeft <= 20 && (
                   <div className="text-xs text-white text-center">
                     {timeLeft <= 10 ? "Time almost up!" : "Finish soon!"}
@@ -145,6 +188,7 @@ export default function SoloPage() {
             onChange={(e) => setFinalAnswer(e.target.value)}
             placeholder="Write your response here…"
             className="w-full grow bg-white bg-opacity-10 text-white border border-gray-600 rounded-md px-3 py-3 text-lg"
+            disabled={timeLeft <= 0}
           />
 
           {/* show button only after time expires */}
