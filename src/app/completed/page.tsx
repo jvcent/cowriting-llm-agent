@@ -9,6 +9,10 @@ type SurveyAnswers = {
   ideaPrompting: string;
   overwhelmed: string;
   prosAndCons: string;
+  age: string;
+  gender: string;
+  genderOther: string;
+  isEnglishFirstLanguage: string;
 };
 
 export default function CompletedPage() {
@@ -28,6 +32,10 @@ export default function CompletedPage() {
     ideaPrompting: "",
     overwhelmed: "",
     prosAndCons: "",
+    age: "18",
+    gender: "",
+    genderOther: "",
+    isEnglishFirstLanguage: "",
   });
 
   // Log all saved data when component mounts
@@ -40,7 +48,9 @@ export default function CompletedPage() {
   }, [soloEssays, singleEssays, groupEssays]);
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLSelectElement | HTMLTextAreaElement | HTMLInputElement
+    >
   ): void => {
     const { name, value } = e.target;
     setSurveyAnswers((prev) => ({
@@ -183,7 +193,8 @@ export default function CompletedPage() {
                 <label className="block mb-2">
                   If you received any assistance during the writing task, please
                   describe what you found helpful and what could have been
-                  improved, otherwise say that you did not receive any assistance:
+                  improved, otherwise say that you did not receive any
+                  assistance:
                 </label>
                 <textarea
                   name="prosAndCons"
@@ -194,6 +205,80 @@ export default function CompletedPage() {
                   className="w-full p-3 rounded border border-gray-500 bg-gray-800 text-white resize-none"
                   placeholder="Please share your thoughts..."
                 />
+              </div>
+
+              {/* Demographic Questions */}
+              <div>
+                <label className="block mb-2">What is your age?</label>
+                <div className="flex items-center space-x-4">
+                  <input
+                    type="range"
+                    name="age"
+                    min="18"
+                    max="100"
+                    value={surveyAnswers.age}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <span className="text-white min-w-[3rem]">
+                    {surveyAnswers.age}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block mb-2">What is your gender?</label>
+                <select
+                  name="gender"
+                  value={surveyAnswers.gender}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full p-3 rounded border border-gray-500 bg-gray-800 text-white mb-2"
+                >
+                  <option value="">Select an option</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other (please specify)</option>
+                  <option value="prefer_not_to_answer">
+                    Prefer not to answer
+                  </option>
+                </select>
+                {surveyAnswers.gender === "other" && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      name="genderOther"
+                      value={surveyAnswers.genderOther}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="Please specify your gender"
+                      className="w-full p-3 rounded border border-gray-500 bg-gray-800 text-white"
+                    />
+                    {!surveyAnswers.genderOther && (
+                      <p className="text-red-400 text-sm mt-1">
+                        Please specify your gender
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block mb-2">
+                  Is English your first language?
+                </label>
+                <select
+                  name="isEnglishFirstLanguage"
+                  value={surveyAnswers.isEnglishFirstLanguage}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full p-3 rounded border border-gray-500 bg-gray-800 text-white"
+                >
+                  <option value="">Select an option</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
               </div>
 
               <button

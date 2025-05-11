@@ -95,11 +95,11 @@ export default function Terms() {
   if (selectedRoute) {
     const introText = {
       "/single":
-        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing. The topics are drawn from the New York Times Student Opinion Series to ensure they are open-ended enough to encourage diverse perspectives while remaining accessible to participants from all backgrounds.\n\nAs you work on your responses, an AI agent will appear in the chat window on the right to provide feedback and offer suggestions to support your writing process. You are welcome to incorporate any of its suggestions or ideas as you see fit. Do your best to write at least 2 paragraphs.",
+        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing.\n\nAs you work on your responses, an AI agent will appear in the chat window on the right to provide feedback and offer suggestions to support your writing process. You are welcome to incorporate any of its suggestions or ideas as you see fit. Do your best to write at least 2 paragraphs.",
       "/group":
-        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing. The topics are drawn from the New York Times Student Opinion Series to ensure they are open-ended enough to encourage diverse perspectives while remaining accessible to participants from all backgrounds.\n\nAs you work on your responses, AI agents will appear in the chat window on the right to provide feedback, offer suggestions, and engage in discussion to support your writing process. You are welcome to incorporate any of their suggestions or ideas as you see fit. Do your best to write at least 2 paragraphs.",
+        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing.\n\nAs you work on your responses, AI agents will appear in the chat window on the right to provide feedback, offer suggestions, and engage in discussion to support your writing process. You are welcome to incorporate any of their suggestions or ideas as you see fit. Do your best to write at least 2 paragraphs.",
       "/solo":
-        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing. The topics are drawn from the New York Times Student Opinion Series to ensure they are open-ended enough to encourage diverse perspectives while remaining accessible to participants from all backgrounds.\n\nYou must refrain from using any external tools or aid during your writing tasks. Do your best to write at least 2 paragraphs.",
+        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing.\n\nYou must refrain from using any external tools or aid during your writing tasks. Do your best to write at least 2 paragraphs.",
     };
 
     return (
@@ -166,12 +166,6 @@ export default function Terms() {
             The purpose of this project is to study how interactions with
             different types of AI collaborators affect people's performance in a
             creative writing task.
-            <br />
-            This study aims to explore whether interacting with multiple AI
-            "voices" can simulate the benefits of human group collaboration—such
-            as increased idea diversity and richer discussions—while also
-            examining potential drawbacks like idea homogenization and
-            over-reliance on AI-generated content.
           </p>
           {/* ... additional terms content ... */}
           <p className="mb-4">

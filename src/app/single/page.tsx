@@ -599,7 +599,7 @@ export default function SinglePage() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="You can ask for feedback or help brainstorm at any point here"
+                  placeholder="Help me brainstorm ideas"
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {

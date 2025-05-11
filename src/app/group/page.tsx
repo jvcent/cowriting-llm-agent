@@ -722,7 +722,7 @@ export default function GroupPage() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask for feedback or help brainstorm..."
+                  placeholder="Help me brainstorm ideas"
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
