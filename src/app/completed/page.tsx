@@ -106,8 +106,7 @@ export default function CompletedPage() {
               <div>
                 <label className="block mb-2">
                   After completing the task, how confident are you that you
-                  could produce a high‑quality piece of writing on a similar
-                  assignment without assistance?
+                  could produce high-quality piece of writing on similar assignments without assistance?
                 </label>
                 <select
                   name="confidence"
@@ -148,6 +147,7 @@ export default function CompletedPage() {
 
               {/* Question 3 */}
               <div>
+                <label>Rate how well you agree with this statement :</label>
                 <label className="block mb-2">
                   The inputs I saw prompted me to consider ideas I wouldn&apos;t
                   have generated on my own.
@@ -169,6 +169,7 @@ export default function CompletedPage() {
 
               {/* Question 4 */}
               <div>
+                <label>Rate how well you agree with this statement :</label>
                 <label className="block mb-2">
                   I felt overwhelmed or confused by the amount of input during
                   the writing task.

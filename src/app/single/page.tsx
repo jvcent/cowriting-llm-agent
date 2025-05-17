@@ -54,9 +54,9 @@ export default function SinglePage() {
   const [currentQuestionType, setCurrentQuestionType] = useState<
     "creative" | "argumentative"
   >("creative");
-  const [questionSequence] = useState<"creative" | "argumentative" | "break">(
-    "creative"
-  );
+  const [questionSequence] = useState<
+    "creative" | "argumentative" | "break"
+  >("creative");
 
   const startTimeRef = useRef<number>(Date.now());
   const [hasGivenStarterFeedback, setHasGivenStarterFeedback] = useState(false);
@@ -101,7 +101,6 @@ export default function SinglePage() {
     [userHasScrolled]
   );
 
-  // Add auto-scroll effect when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
@@ -148,9 +147,7 @@ export default function SinglePage() {
         },
       ]);
 
-      // Add typing animation
       setTypingMessageIds((prev) => [...prev, tempId]);
-      // Remove typing animation after a short delay
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== tempId));
       }, 1000);
@@ -193,7 +190,6 @@ export default function SinglePage() {
   // -----------------------------
   // EFFECTS
   // -----------------------------
-  // Keep user auto‑scrolled on new user message
   useEffect(() => {
     const latest = messages[messages.length - 1];
     if (latest?.sender === "user") {
@@ -205,25 +201,20 @@ export default function SinglePage() {
 
   // Load a random question + agent
   const fetchQuestions = useCallback(async () => {
-    try {
-      const topics: TopicMap =
-        questionSequence === "creative" ? creativeTopics : argumentativeTopics;
-      const keys = Object.keys(topics);
-      const rk = keys[Math.floor(Math.random() * keys.length)];
-      const agentsList = topics[rk];
-      const agent = agentsList[Math.floor(Math.random() * agentsList.length)];
+    const topics: TopicMap =
+      questionSequence === "creative" ? creativeTopics : argumentativeTopics;
+    const keys = Object.keys(topics);
+    const rk = keys[Math.floor(Math.random() * keys.length)];
+    const agentsList = topics[rk];
 
-      setCurrentQuestionType(
-        questionSequence === "break"
-          ? "creative"
-          : (questionSequence as "creative" | "argumentative")
-      );
-      setCurrentAgents([agent]);
-      setCurrentQuestion(rk);
-      setLoadedQuestions(true);
-    } catch (err) {
-      console.error(err);
-    }
+    setCurrentQuestionType(
+      questionSequence === "break"
+        ? "creative"
+        : (questionSequence as "creative" | "argumentative")
+    );
+    setCurrentAgents([agentsList[Math.floor(Math.random() * agentsList.length)]]);
+    setCurrentQuestion(rk);
+    setLoadedQuestions(true);
   }, [questionSequence]);
 
   useEffect(() => {
@@ -275,9 +266,7 @@ export default function SinglePage() {
         )
       );
 
-      // Add typing animation
       setTypingMessageIds((prev) => [...prev, tempId]);
-      // Remove typing animation after a short delay
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== tempId));
       }, 1000);
@@ -342,12 +331,16 @@ export default function SinglePage() {
         setCurrentQuestion(rk);
         setCurrentAgents(agentsList);
 
+        // ←— 5-second delay before the agent’s first message
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+
         if (agentsList.length) {
           await postStaticMessageSequentially(
             agentsList[0],
             `Let's work on this ${chosen} writing task together. I'm here to help you develop your ideas and explore different perspectives.`
           );
         }
+
         setIsQuestioningEnabled(true);
       } catch (err) {
         console.error(err);
@@ -363,9 +356,7 @@ export default function SinglePage() {
   // Timer countdown
   useEffect(() => {
     if (timeLeft <= 0) {
-      if (isQuestioningEnabled) {
-        autoSubmitTimeoutAnswer();
-      }
+      if (isQuestioningEnabled) autoSubmitTimeoutAnswer();
       return;
     }
     if (roundEndedRef.current) return;
@@ -373,28 +364,24 @@ export default function SinglePage() {
     const t = setTimeout(() => {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
-
     return () => clearTimeout(t);
   }, [timeLeft, isQuestioningEnabled, autoSubmitTimeoutAnswer]);
 
-  // Starter feedback on idle (simple heuristic)
+  // Starter feedback on idle
   useEffect(() => {
     if (lastFeedbackWordCount > 0 && !hasGivenStarterFeedback) {
       triggerStarterFeedback();
     }
   }, [lastFeedbackWordCount, hasGivenStarterFeedback, triggerStarterFeedback]);
 
-  // Add this effect after the other useEffect blocks
+  // Warning at 2 minutes left
   useEffect(() => {
     if (timeLeft === 180 && !finalAnswer.trim()) {
-      // 2 minutes = 120 seconds, so 300 - 120 = 180
       setShowWarning(true);
     }
   }, [timeLeft, finalAnswer]);
 
-  // -----------------------------
-  // AUTO‑FEEDBACK
-  // -----------------------------
+  // AUTO-FEEDBACK
   const triggerAutomaticFeedback = async (text: string) => {
     if (roundEndedRef.current) return;
     const agent = currentAgents[0];
@@ -431,15 +418,13 @@ export default function SinglePage() {
       )
     );
 
-    // Add typing animation
     setTypingMessageIds((prev) => [...prev, msgId]);
-    // Remove typing animation after a short delay
     setTimeout(() => {
       setTypingMessageIds((prev) => prev.filter((id) => id !== msgId));
     }, 1000);
   };
 
-  // Essay change handler (word‑count based feedback trigger)
+  // Essay change handler
   const handleEssayChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const txt = e.target.value;
     setFinalAnswer(txt);
@@ -450,7 +435,7 @@ export default function SinglePage() {
     }
   };
 
-  // Handle finish / move to next question
+  // Next question / finish
   const handleNextQuestion = () => {
     if (currentQuestion && finalAnswer) {
       const spent = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -472,9 +457,7 @@ export default function SinglePage() {
     }
   };
 
-  // -----------------------------
   // RENDER
-  // -----------------------------
   return (
     <div className="h-screen bg-gradient-to-b from-[#2D0278] to-[#0A001D] p-4 flex flex-row overflow-hidden">
       {showWarning && (
@@ -525,7 +508,6 @@ export default function SinglePage() {
             <p className="text-white text-lg">{currentQuestion}</p>
           </div>
         )}
-
         <div className="flex flex-col bg-white bg-opacity-15 rounded-md p-4 mb-4 h-full border-2 border-blue-400 shadow-lg">
           <h3 className="text-xl text-white font-semibold mb-2">Your Essay</h3>
           <textarea
@@ -539,28 +521,23 @@ export default function SinglePage() {
           />
         </div>
       </div>
-
       {/* RIGHT PANEL */}
       <div className="w-1/2 pl-2 flex flex-col h-full">
         <div className="flex-1 bg-white bg-opacity-10 rounded-md flex flex-col overflow-hidden">
-          <div className="bg-black bg-opacity-30 p-2">
-            <div className="flex space-x-3 items-center">
-              {currentAgents[0] && (
-                <Image
-                  src={currentAgents[0].avatar}
-                  alt={currentAgents[0].name}
-                  width={40}
-                  height={40}
-                  className="rounded-full"
-                />
-              )}
-              <span className="ml-2 text-white font-medium">
-                {currentAgents[0]?.name || "AI Assistant"}
-              </span>
-            </div>
+          <div className="bg-black bg-opacity-30 p-2 flex space-x-3 items-center">
+            {currentAgents[0] && (
+              <Image
+                src={currentAgents[0].avatar}
+                alt={currentAgents[0].name}
+                width={40}
+                height={40}
+                className="rounded-full"
+              />
+            )}
+            <span className="ml-2 text-white font-medium">
+              {currentAgents[0]?.name || "AI Assistant"}
+            </span>
           </div>
-
-          {/* CHAT */}
           <div
             className="flex-1 p-4 overflow-y-auto"
             ref={chatContainerRef}
@@ -621,7 +598,6 @@ export default function SinglePage() {
             ))}
             <div key="messages-end" />
           </div>
-
           {isQuestioningEnabled && (
             <div className="p-3 bg-black bg-opacity-30">
               <div className="flex space-x-2">
@@ -629,7 +605,7 @@ export default function SinglePage() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Help me brainstorm ideas"
+                  placeholder="Ask for help or advice. E.g., you may write “Help me brainstorm ideas….”"
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -652,7 +628,6 @@ export default function SinglePage() {
               </div>
             </div>
           )}
-
           {!isQuestioningEnabled && evaluationComplete && (
             <div className="p-3 bg-black bg-opacity-30 flex justify-center">
               <button

@@ -91,9 +91,7 @@ export default function GroupPage() {
   const [feedbackSessionId, setFeedbackSessionId] = useState(0);
 
   // Question sets
-  const [currentQuestionSet, setCurrentQuestionSet] = useState<
-    "creative" | "argumentative"
-  >("creative");
+  const [currentQuestionSet, setCurrentQuestionSet] = useState<"creative" | "argumentative">("creative");
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [currentAgents, setCurrentAgents] = useState<Agent[]>([]);
   const [loadedQuestions, setLoadedQuestions] = useState(false);
@@ -293,6 +291,9 @@ export default function GroupPage() {
         setTimeout(resolve, 0);
       });
 
+      // ←— Added a 5 second delay before any introductory messages go out
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
       try {
         // Each chosen agent introduces themselves sequentially using their introMessage
         for (const agent of chosenAgents) {
@@ -342,7 +343,6 @@ export default function GroupPage() {
   // ----------------------------------------------------------------
   // Generate Bot Responses (One After Another)
   // ----------------------------------------------------------------
-  // Helper to call the AI service
   const callAgentForResponse = useCallback(
     async (agent: Agent, prompt: string): Promise<string> => {
       try {
@@ -368,18 +368,15 @@ export default function GroupPage() {
     [currentModel]
   );
 
-  // Actually loop over all agents in random order, letting them respond
   const generateResponsesFromAllAgents = async (userMessage: string) => {
     const activeFeedback = feedbackSessionId;
 
     // Randomize the order in which agents respond
     const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
 
-    // Process agents sequentially
     for (const agent of shuffledAgents) {
       if (feedbackSessionId !== activeFeedback) break;
 
-      // Get conversation history up to this point
       const conversationSoFar = messages
         .map((m) => {
           const senderName =
@@ -397,11 +394,9 @@ USER just asked: "${userMessage}"
 
 Now please respond in-character as "${agent.name}". Consider the previous messages in the conversation when forming your response.`;
 
-      // Call the AI service for the final text
       const aiResponseText = await callAgentForResponse(agent, prompt);
       if (feedbackSessionId !== activeFeedback) break;
 
-      // Insert message with final text immediately
       const messageId = getUniqueMessageId();
       setMessages((prev) => [
         ...prev,
@@ -414,14 +409,11 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
         },
       ]);
 
-      // Add typing animation
       setTypingMessageIds((prev) => [...prev, messageId]);
-      // Remove typing animation after a short delay
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
       }, 1000);
 
-      // Add a small delay between agent responses
       await new Promise((res) => setTimeout(res, 500));
     }
   };
@@ -429,15 +421,11 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
   // ----------------------------------------------------------------
   // User Interaction
   // ----------------------------------------------------------------
-
-  // The user types a question or asks for feedback
   const handleUserQuestion = async () => {
     if (!input.trim()) return;
 
-    // Bump the session ID so partial responses won't continue
     setFeedbackSessionId((prev) => prev + 1);
 
-    // Add user's message
     const userMsg: Message = {
       id: getUniqueMessageId(),
       sender: "user",
@@ -450,25 +438,20 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
     forceScrollToBottomRef.current = true;
     setTimeout(() => scrollToBottom(true), 100);
 
-    // Let all agents respond in sequence
     await generateResponsesFromAllAgents(userMsg.text!);
   };
 
-  // Get word count
-  const getWordCount = (text: string) => {
-    return text
+  const getWordCount = (text: string) =>
+    text
       .trim()
       .split(/\s+/)
-      .filter((word) => word.length > 0).length;
-  };
+      .filter((w) => w.length > 0).length;
 
-  // Trigger automatic feedback
   const triggerAutomaticFeedback = async (text: string) => {
     if (roundEndedRef.current) return;
 
     setFeedbackSessionId((prev) => prev + 1);
 
-    // Have each agent provide feedback without showing a user message
     for (const agent of currentAgents) {
       const aiResponseText = await callAgentForResponse(
         agent,
@@ -487,9 +470,7 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
         },
       ]);
 
-      // Add typing animation
       setTypingMessageIds((prev) => [...prev, messageId]);
-      // Remove typing animation after a short delay
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
       }, 1000);
@@ -503,7 +484,6 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
 
     setFeedbackSessionId((prev) => prev + 1);
 
-    // Have each agent provide starter suggestions without showing a user message
     for (const agent of currentAgents) {
       const aiResponseText = await callAgentForResponse(
         agent,
@@ -522,23 +502,15 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
         },
       ]);
 
-      // Add typing animation
       setTypingMessageIds((prev) => [...prev, messageId]);
-      // Remove typing animation after a short delay
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
       }, 1000);
 
       await new Promise((res) => setTimeout(res, 300));
     }
-  }, [
-    currentAgents,
-    currentQuestion,
-    getUniqueMessageId,
-    callAgentForResponse,
-  ]);
+  }, [currentAgents, currentQuestion, getUniqueMessageId, callAgentForResponse]);
 
-  // Check for idle time and low word count
   useEffect(() => {
     if (roundEndedRef.current || hasGivenStarterFeedback) return;
 
@@ -556,14 +528,8 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
     }, 5000);
 
     return () => clearInterval(checkIdleInterval);
-  }, [
-    lastWritingTime,
-    finalAnswer,
-    hasGivenStarterFeedback,
-    triggerStarterFeedback,
-  ]);
+  }, [lastWritingTime, finalAnswer, hasGivenStarterFeedback, triggerStarterFeedback]);
 
-  // Track final answer as the user types
   const handleFinalAnswerChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -571,7 +537,6 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
     setFinalAnswer(newText);
     setLastWritingTime(Date.now());
 
-    // Check word count and trigger feedback if needed
     const currentWordCount = getWordCount(newText);
     if (currentWordCount >= lastFeedbackWordCount + WORD_COUNT_THRESHOLD) {
       setLastFeedbackWordCount(currentWordCount);
@@ -579,10 +544,8 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
     }
   };
 
-  // Add this effect after the other useEffect blocks
   useEffect(() => {
     if (timeLeft === 180 && !finalAnswer.trim()) {
-      // 2 minutes = 120 seconds, so 300 - 120 = 180
       setShowWarning(true);
     }
   }, [timeLeft, finalAnswer]);
@@ -757,7 +720,7 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Help me brainstorm ideas"
+                  placeholder="Ask for help or advice. E.g., you may write “Help me brainstorm ideas….”"
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
