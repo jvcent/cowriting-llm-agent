@@ -45,7 +45,7 @@ export default function SinglePage() {
   const [currentModel] = useState(AI_MODELS.CLAUDE_HAIKU.id);
   const [, setLastUserActivityTime] = useState(Date.now());
 
-  const timerDuration = 300;
+  const timerDuration = 3;
   const [loadedQuestions, setLoadedQuestions] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerDuration);
 

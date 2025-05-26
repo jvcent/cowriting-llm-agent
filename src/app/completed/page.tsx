@@ -57,9 +57,7 @@ export default function CompletedPage() {
       ...prev,
       [name]: value,
     }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  };  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (isSubmitting) return;
@@ -76,9 +74,31 @@ export default function CompletedPage() {
 
       // First save survey data to flow context
       saveSurveyData(surveyAnswers);
+      
+      // Prepare data for API submission
+      const dataToSubmit = {
+        soloEssays,
+        singleEssays,
+        groupEssays,
+        surveyAnswers
+      };
 
-      // Then submit all data
-      await submitAllDataToDatabase();
+      // Submit data to API endpoint that handles Firebase writing
+      const response = await fetch('/api/submit-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dataToSubmit),
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Error submitting data');
+      }
+      
+      console.log("Document written with ID: ", result.documentId);
 
       setHasSubmitted(true);
     } catch (error) {
