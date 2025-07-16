@@ -45,7 +45,7 @@ export default function SinglePage() {
   const [currentModel] = useState(AI_MODELS.CLAUDE_HAIKU.id);
   const [, setLastUserActivityTime] = useState(Date.now());
 
-  const timerDuration = 3;
+  const timerDuration = 300;
   const [loadedQuestions, setLoadedQuestions] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerDuration);
 
@@ -150,7 +150,7 @@ export default function SinglePage() {
       setTypingMessageIds((prev) => [...prev, tempId]);
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== tempId));
-      }, 1000);
+      }, 3000);
     },
     [getUniqueMessageId]
   );
@@ -269,7 +269,7 @@ export default function SinglePage() {
       setTypingMessageIds((prev) => [...prev, tempId]);
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== tempId));
-      }, 1000);
+      }, 3000);
     } catch (err) {
       console.error(err);
       setMessages((prev) => prev.filter((m) => m.text !== "..."));
@@ -421,7 +421,7 @@ export default function SinglePage() {
     setTypingMessageIds((prev) => [...prev, msgId]);
     setTimeout(() => {
       setTypingMessageIds((prev) => prev.filter((id) => id !== msgId));
-    }, 1000);
+    }, 3000);
   };
 
   // Essay change handler

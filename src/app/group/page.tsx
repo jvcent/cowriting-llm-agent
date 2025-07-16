@@ -374,10 +374,14 @@ export default function GroupPage() {
     // Randomize the order in which agents respond
     const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
 
-    for (const agent of shuffledAgents) {
+    // Track messages as they're added to include new agent responses in subsequent prompts
+    let currentMessages = [...messages];
+
+    for (let i = 0; i < shuffledAgents.length; i++) {
+      const agent = shuffledAgents[i];
       if (feedbackSessionId !== activeFeedback) break;
 
-      const conversationSoFar = messages
+      const conversationSoFar = currentMessages
         .map((m) => {
           const senderName =
             m.sender === "ai"
@@ -387,34 +391,71 @@ export default function GroupPage() {
         })
         .join("\n");
 
-      const prompt = `CONVERSATION SO FAR:
+      // Get the other agents who are also responding
+      const otherAgentsInThisRound = shuffledAgents.filter(a => a.id !== agent.id);
+      const agentNames = otherAgentsInThisRound.map(a => a.name).join(", ");
+
+      let prompt: string;
+      if (i === 0) {
+        // First agent responds to user
+        prompt = `CONVERSATION SO FAR:
 ${conversationSoFar}
 
 USER just asked: "${userMessage}"
 
-Now please respond in-character as "${agent.name}". Consider the previous messages in the conversation when forming your response.`;
+You are responding as "${agent.name}" in a group discussion with ${agentNames}. Other agents will also respond to this question, so feel free to take a specific angle or focus on particular aspects. Consider the previous conversation when forming your response.`;
+      } else {
+        // Subsequent agents can build on what previous agents said
+        const recentAgentResponses = currentMessages
+          .slice(-i) // Get the most recent agent responses from this round
+          .filter(m => m.sender === "ai")
+          .map(m => {
+            const agentName = currentAgents.find(a => a.id === m.agentId)?.name ?? "AI";
+            return `${agentName}: ${m.text}`;
+          })
+          .join("\n");
+
+        prompt = `CONVERSATION SO FAR:
+${conversationSoFar}
+
+USER just asked: "${userMessage}"
+
+OTHER AGENTS IN THIS ROUND HAVE ALREADY RESPONDED:
+${recentAgentResponses}
+
+You are "${agent.name}". Now it's your turn to respond. You can:
+- Build on what other agents have said
+- Offer a different perspective
+- Add complementary ideas
+- Respectfully disagree and provide alternatives
+- Connect ideas from multiple agents
+
+Make your response feel like part of a natural group discussion where ideas flow together.`;
+      }
 
       const aiResponseText = await callAgentForResponse(agent, prompt);
       if (feedbackSessionId !== activeFeedback) break;
 
       const messageId = getUniqueMessageId();
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: messageId,
-          sender: "ai",
-          text: aiResponseText,
-          agentId: agent.id,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      const newMessage = {
+        id: messageId,
+        sender: "ai" as const,
+        text: aiResponseText,
+        agentId: agent.id,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Add to both state and our tracking array
+      setMessages((prev) => [...prev, newMessage]);
+      currentMessages = [...currentMessages, newMessage];
 
       setTypingMessageIds((prev) => [...prev, messageId]);
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
       }, 1000);
 
-      await new Promise((res) => setTimeout(res, 500));
+      // Slightly longer delay between agents to make the conversation feel more natural
+      await new Promise((res) => setTimeout(res, 800));
     }
   };
 
@@ -452,30 +493,57 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
 
     setFeedbackSessionId((prev) => prev + 1);
 
-    for (const agent of currentAgents) {
-      const aiResponseText = await callAgentForResponse(
-        agent,
-        `Please provide brief, constructive feedback on what has been written so far: "${text}"`
-      );
+    // Randomize order for more natural feedback flow
+    const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
+    let currentMessages = [...messages];
+
+    for (let i = 0; i < shuffledAgents.length; i++) {
+      const agent = shuffledAgents[i];
+      const otherAgentsInThisRound = shuffledAgents.filter(a => a.id !== agent.id);
+
+      let prompt: string;
+      if (i === 0) {
+        // First agent provides initial feedback
+        prompt = `Please provide brief, constructive feedback on what has been written so far: "${text}". Other agents will also provide feedback, so focus on your unique perspective as "${agent.name}".`;
+      } else {
+        // Subsequent agents can reference previous feedback
+        const recentFeedback = currentMessages
+          .slice(-i)
+          .filter(m => m.sender === "ai")
+          .map(m => {
+            const agentName = currentAgents.find(a => a.id === m.agentId)?.name ?? "AI";
+            return `${agentName}: ${m.text}`;
+          })
+          .join("\n");
+
+        prompt = `The user has written: "${text}"
+
+OTHER AGENTS HAVE ALREADY PROVIDED FEEDBACK:
+${recentFeedback}
+
+As "${agent.name}", provide your own brief, constructive feedback. You can build on what others have said, offer a different angle, or add complementary suggestions. Keep it concise and helpful.`;
+      }
+
+      const aiResponseText = await callAgentForResponse(agent, prompt);
 
       const messageId = getUniqueMessageId();
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: messageId,
-          sender: "ai",
-          text: aiResponseText,
-          agentId: agent.id,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      const newMessage = {
+        id: messageId,
+        sender: "ai" as const,
+        text: aiResponseText,
+        agentId: agent.id,
+        timestamp: new Date().toISOString(),
+      };
+
+      setMessages((prev) => [...prev, newMessage]);
+      currentMessages = [...currentMessages, newMessage];
 
       setTypingMessageIds((prev) => [...prev, messageId]);
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
       }, 1000);
 
-      await new Promise((res) => setTimeout(res, 300));
+      await new Promise((res) => setTimeout(res, 400));
     }
   };
 
@@ -484,32 +552,60 @@ Now please respond in-character as "${agent.name}". Consider the previous messag
 
     setFeedbackSessionId((prev) => prev + 1);
 
-    for (const agent of currentAgents) {
-      const aiResponseText = await callAgentForResponse(
-        agent,
-        `The user is looking at the writing prompt: "${currentQuestion}". Without mentioning that they haven't started yet, provide encouraging suggestions for how to approach this prompt and get started writing.`
-      );
+    // Randomize order for more natural discussion flow
+    const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
+    let currentMessages = [...messages];
+
+    for (let i = 0; i < shuffledAgents.length; i++) {
+      const agent = shuffledAgents[i];
+      const otherAgentsInThisRound = shuffledAgents.filter(a => a.id !== agent.id);
+      const agentNames = otherAgentsInThisRound.map(a => a.name).join(", ");
+
+      let prompt: string;
+      if (i === 0) {
+        // First agent starts the discussion
+        prompt = `The user is looking at the writing prompt: "${currentQuestion}". You are "${agent.name}" in a group discussion with ${agentNames}. Start a collaborative discussion by providing encouraging suggestions for how to approach this prompt and get started writing. Other agents will build on your ideas.`;
+      } else {
+        // Subsequent agents can build on previous suggestions
+        const previousSuggestions = currentMessages
+          .slice(-i)
+          .filter(m => m.sender === "ai")
+          .map(m => {
+            const agentName = currentAgents.find(a => a.id === m.agentId)?.name ?? "AI";
+            return `${agentName}: ${m.text}`;
+          })
+          .join("\n");
+
+        prompt = `The writing prompt is: "${currentQuestion}"
+
+OTHER AGENTS HAVE ALREADY SHARED IDEAS:
+${previousSuggestions}
+
+As "${agent.name}", add your own encouraging suggestions for approaching this prompt. You can build on what others have said, offer complementary strategies, or suggest different angles to consider. Keep the collaborative spirit going!`;
+      }
+
+      const aiResponseText = await callAgentForResponse(agent, prompt);
 
       const messageId = getUniqueMessageId();
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: messageId,
-          sender: "ai",
-          text: aiResponseText,
-          agentId: agent.id,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      const newMessage = {
+        id: messageId,
+        sender: "ai" as const,
+        text: aiResponseText,
+        agentId: agent.id,
+        timestamp: new Date().toISOString(),
+      };
+
+      setMessages((prev) => [...prev, newMessage]);
+      currentMessages = [...currentMessages, newMessage];
 
       setTypingMessageIds((prev) => [...prev, messageId]);
       setTimeout(() => {
         setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
       }, 1000);
 
-      await new Promise((res) => setTimeout(res, 300));
+      await new Promise((res) => setTimeout(res, 400));
     }
-  }, [currentAgents, currentQuestion, getUniqueMessageId, callAgentForResponse]);
+  }, [currentAgents, currentQuestion, getUniqueMessageId, callAgentForResponse, messages]);
 
   useEffect(() => {
     if (roundEndedRef.current || hasGivenStarterFeedback) return;
