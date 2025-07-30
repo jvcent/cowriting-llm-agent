@@ -75,7 +75,7 @@ export default function GroupPage() {
   // Add auto-scroll effect when messages change
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   // Discussion states
   const [isQuestioningEnabled, setIsQuestioningEnabled] = useState(true);
@@ -491,7 +491,6 @@ IMPORTANT: Respond directly with your message content only. Do not include your 
 
     for (let i = 0; i < shuffledAgents.length; i++) {
       const agent = shuffledAgents[i];
-      const otherAgentsInThisRound = shuffledAgents.filter(a => a.id !== agent.id);
 
       let prompt: string;
       if (i === 0) {

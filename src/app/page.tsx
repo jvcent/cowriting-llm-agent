@@ -164,7 +164,7 @@ export default function Terms() {
           </p>
           <p className="mb-4">
             The purpose of this project is to study how interactions with
-            different types of AI collaborators affect people's performance in a
+            different types of AI collaborators affect people&apos;s performance in a
             creative writing task.
           </p>
           {/* ... additional terms content ... */}

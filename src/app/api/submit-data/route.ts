@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import admin from "firebase-admin";
 
 // Initialize Firebase Admin SDK if it hasn't been already
-let app: admin.app.App;
 if (!admin.apps.length) {
-  app = admin.initializeApp({
+  admin.initializeApp({
     credential: admin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -12,8 +11,6 @@ if (!admin.apps.length) {
       privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     }),
   });
-} else {
-  app = admin.app();
 }
 
 // Get Firestore instance

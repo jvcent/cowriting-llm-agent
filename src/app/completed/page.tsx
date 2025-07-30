@@ -17,7 +17,6 @@ type SurveyAnswers = {
 
 export default function CompletedPage() {
   const {
-    submitAllDataToDatabase,
     saveSurveyData,
     soloEssays,
     singleEssays,
