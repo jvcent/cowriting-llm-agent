@@ -56,7 +56,7 @@ export default function GroupPage() {
   const lastManualScrollTimeRef = useRef(0);
   const forceScrollToBottomRef = useRef(false);
 
-  const scrollToBottom = (force = false) => {
+  const scrollToBottom = useCallback((force = false) => {
     const chatContainer = chatContainerRef.current;
     if (!chatContainer) return;
 
@@ -70,7 +70,7 @@ export default function GroupPage() {
       });
       forceScrollToBottomRef.current = false;
     }
-  };
+  }, [userHasScrolled]);
 
   // Add auto-scroll effect when messages change
   useEffect(() => {
@@ -203,35 +203,6 @@ export default function GroupPage() {
   }, [timeLeft, isQuestioningEnabled, autoSubmitTimeoutAnswer]);
 
   // ----------------------------------------------------------------
-  // Post a Static Bot Message (Greeting)
-  // ----------------------------------------------------------------
-  const postStaticMessageSequentially = useCallback(
-    async (agent: Agent, text: string) => {
-      const messageId = getUniqueMessageId();
-
-      // Insert message with final text immediately
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: messageId,
-          sender: "ai",
-          text,
-          agentId: agent.id,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-
-      // Add typing animation
-      setTypingMessageIds((prev) => [...prev, messageId]);
-      // Remove typing animation after a short delay
-      setTimeout(() => {
-        setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
-      }, 1000);
-    },
-    [getUniqueMessageId]
-  );
-
-  // ----------------------------------------------------------------
   // Question / Round Setup
   // ----------------------------------------------------------------
   const fetchQuestions = async () => {
@@ -289,7 +260,7 @@ export default function GroupPage() {
       setCurrentAgents(chosenAgents);
       setIsQuestioningEnabled(true);
     },
-    [currentQuestionSet, postStaticMessageSequentially]
+    [currentQuestionSet]
   );
 
   useEffect(() => {

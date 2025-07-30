@@ -336,7 +336,7 @@ export default function SinglePage() {
         console.error(err);
       }
     },
-    [currentQuestionType]
+    [currentQuestionType, postStaticMessageSequentially]
   );
 
   useEffect(() => {
