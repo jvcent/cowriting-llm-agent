@@ -331,16 +331,6 @@ export default function SinglePage() {
         setCurrentQuestion(rk);
         setCurrentAgents(agentsList);
 
-        // ←— 5-second delay before the agent’s first message
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-
-        if (agentsList.length) {
-          await postStaticMessageSequentially(
-            agentsList[0],
-            `Let's work on this ${chosen} writing task together. I'm here to help you develop your ideas and explore different perspectives.`
-          );
-        }
-
         setIsQuestioningEnabled(true);
       } catch (err) {
         console.error(err);
@@ -605,7 +595,7 @@ export default function SinglePage() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask for help or advice. E.g., you may write “Help me brainstorm ideas….”"
+                  placeholder="Ask for help or advice. E.g., you may write 'Help me brainstorm ideas....'"
                   className="flex-1 bg-white bg-opacity-10 text-white border border-gray-700 rounded-md px-3 py-2"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {

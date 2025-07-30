@@ -285,27 +285,9 @@ export default function GroupPage() {
 
       setCurrentQuestion(randomKey);
 
-      // Update state & wait a tick before sending intro messages
-      await new Promise<void>((resolve) => {
-        setCurrentAgents(chosenAgents);
-        setTimeout(resolve, 0);
-      });
-
-      // ←— Added a 5 second delay before any introductory messages go out
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-
-      try {
-        // Each chosen agent introduces themselves sequentially using their introMessage
-        for (const agent of chosenAgents) {
-          await postStaticMessageSequentially(agent, agent.introMessage);
-          // Add a delay between each agent's introduction
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-        }
-
-        setIsQuestioningEnabled(true);
-      } catch (err) {
-        console.error("Error starting round:", err);
-      }
+      // Update state
+      setCurrentAgents(chosenAgents);
+      setIsQuestioningEnabled(true);
     },
     [currentQuestionSet, postStaticMessageSequentially]
   );
@@ -403,7 +385,9 @@ ${conversationSoFar}
 
 USER just asked: "${userMessage}"
 
-You are responding as "${agent.name}" in a group discussion with ${agentNames}. Other agents will also respond to this question, so feel free to take a specific angle or focus on particular aspects. Consider the previous conversation when forming your response.`;
+You are responding as "${agent.name}" in a group discussion with ${agentNames}. Other agents will also respond to this question, so feel free to take a specific angle or focus on particular aspects. Consider the previous conversation when forming your response.
+
+IMPORTANT: Respond directly with your message content only. Do not include your name or a colon at the beginning of your response.`;
       } else {
         // Subsequent agents can build on what previous agents said
         const recentAgentResponses = currentMessages
@@ -430,17 +414,25 @@ You are "${agent.name}". Now it's your turn to respond. You can:
 - Respectfully disagree and provide alternatives
 - Connect ideas from multiple agents
 
-Make your response feel like part of a natural group discussion where ideas flow together.`;
+Make your response feel like part of a natural group discussion where ideas flow together.
+
+IMPORTANT: Respond directly with your message content only. Do not include your name or a colon at the beginning of your response.`;
       }
 
       const aiResponseText = await callAgentForResponse(agent, prompt);
       if (feedbackSessionId !== activeFeedback) break;
 
+      // Clean up response text - remove leading colons or agent names
+      const cleanedResponse = aiResponseText
+        .replace(/^[^:]*:\s*/, '') // Remove "AgentName: " pattern at start
+        .replace(/^:\s*/, '') // Remove standalone colon at start
+        .trim();
+
       const messageId = getUniqueMessageId();
       const newMessage = {
         id: messageId,
         sender: "ai" as const,
-        text: aiResponseText,
+        text: cleanedResponse,
         agentId: agent.id,
         timestamp: new Date().toISOString(),
       };
@@ -504,7 +496,9 @@ Make your response feel like part of a natural group discussion where ideas flow
       let prompt: string;
       if (i === 0) {
         // First agent provides initial feedback
-        prompt = `Please provide brief, constructive feedback on what has been written so far: "${text}". Other agents will also provide feedback, so focus on your unique perspective as "${agent.name}".`;
+        prompt = `Please provide brief, constructive feedback on what has been written so far: "${text}". Other agents will also provide feedback, so focus on your unique perspective as "${agent.name}".
+
+IMPORTANT: Respond directly with your feedback content only. Do not include your name or a colon at the beginning of your response.`;
       } else {
         // Subsequent agents can reference previous feedback
         const recentFeedback = currentMessages
@@ -521,16 +515,24 @@ Make your response feel like part of a natural group discussion where ideas flow
 OTHER AGENTS HAVE ALREADY PROVIDED FEEDBACK:
 ${recentFeedback}
 
-As "${agent.name}", provide your own brief, constructive feedback. You can build on what others have said, offer a different angle, or add complementary suggestions. Keep it concise and helpful.`;
+As "${agent.name}", provide your own brief, constructive feedback. You can build on what others have said, offer a different angle, or add complementary suggestions. Keep it concise and helpful.
+
+IMPORTANT: Respond directly with your feedback content only. Do not include your name or a colon at the beginning of your response.`;
       }
 
       const aiResponseText = await callAgentForResponse(agent, prompt);
+
+      // Clean up response text - remove leading colons or agent names
+      const cleanedResponse = aiResponseText
+        .replace(/^[^:]*:\s*/, '') // Remove "AgentName: " pattern at start
+        .replace(/^:\s*/, '') // Remove standalone colon at start
+        .trim();
 
       const messageId = getUniqueMessageId();
       const newMessage = {
         id: messageId,
         sender: "ai" as const,
-        text: aiResponseText,
+        text: cleanedResponse,
         agentId: agent.id,
         timestamp: new Date().toISOString(),
       };
@@ -564,7 +566,9 @@ As "${agent.name}", provide your own brief, constructive feedback. You can build
       let prompt: string;
       if (i === 0) {
         // First agent starts the discussion
-        prompt = `The user is looking at the writing prompt: "${currentQuestion}". You are "${agent.name}" in a group discussion with ${agentNames}. Start a collaborative discussion by providing encouraging suggestions for how to approach this prompt and get started writing. Other agents will build on your ideas.`;
+        prompt = `The user is looking at the writing prompt: "${currentQuestion}". You are "${agent.name}" in a group discussion with ${agentNames}. Start a collaborative discussion by providing encouraging suggestions for how to approach this prompt and get started writing. Other agents will build on your ideas.
+
+IMPORTANT: Respond directly with your suggestions content only. Do not include your name or a colon at the beginning of your response.`;
       } else {
         // Subsequent agents can build on previous suggestions
         const previousSuggestions = currentMessages
@@ -581,16 +585,24 @@ As "${agent.name}", provide your own brief, constructive feedback. You can build
 OTHER AGENTS HAVE ALREADY SHARED IDEAS:
 ${previousSuggestions}
 
-As "${agent.name}", add your own encouraging suggestions for approaching this prompt. You can build on what others have said, offer complementary strategies, or suggest different angles to consider. Keep the collaborative spirit going!`;
+As "${agent.name}", add your own encouraging suggestions for approaching this prompt. You can build on what others have said, offer complementary strategies, or suggest different angles to consider. Keep the collaborative spirit going!
+
+IMPORTANT: Respond directly with your suggestions content only. Do not include your name or a colon at the beginning of your response.`;
       }
 
       const aiResponseText = await callAgentForResponse(agent, prompt);
+
+      // Clean up response text - remove leading colons or agent names
+      const cleanedResponse = aiResponseText
+        .replace(/^[^:]*:\s*/, '') // Remove "AgentName: " pattern at start
+        .replace(/^:\s*/, '') // Remove standalone colon at start
+        .trim();
 
       const messageId = getUniqueMessageId();
       const newMessage = {
         id: messageId,
         sender: "ai" as const,
-        text: aiResponseText,
+        text: cleanedResponse,
         agentId: agent.id,
         timestamp: new Date().toISOString(),
       };
