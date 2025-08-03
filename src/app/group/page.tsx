@@ -468,7 +468,7 @@ IMPORTANT: Respond directly with your message content only. Do not include your 
         // First agent provides initial feedback
         prompt = `Please provide brief, constructive feedback on what has been written so far: "${text}". Other agents will also provide feedback, so focus on your unique perspective as "${agent.name}".
 
-IMPORTANT: Respond directly with your feedback content only. Do not include your name or a colon at the beginning of your response.`;
+IMPORTANT: Respond directly with your feedback content only. Do not include your name or a colon at the beginning of your response. Limit your response to 50 words or less.`;
       } else {
         // Subsequent agents can reference previous feedback
         const recentFeedback = currentMessages
@@ -487,7 +487,7 @@ ${recentFeedback}
 
 As "${agent.name}", provide your own brief, constructive feedback. You can build on what others have said, offer a different angle, or add complementary suggestions. Keep it concise and helpful.
 
-IMPORTANT: Respond directly with your feedback content only. Do not include your name or a colon at the beginning of your response.`;
+IMPORTANT: Respond directly with your feedback content only. Do not include your name or a colon at the beginning of your response. Limit your response to 50 words or less.`;
       }
 
       const aiResponseText = await callAgentForResponse(agent, prompt);
@@ -596,9 +596,11 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
       const currentTime = Date.now();
       const currentWordCount = getWordCount(finalAnswer);
 
+      // Only trigger starter feedback if user has written at least something (more than just whitespace)
       if (
         currentWordCount < WORD_COUNT_THRESHOLD &&
-        currentTime - lastWritingTime >= IDLE_THRESHOLD
+        currentTime - lastWritingTime >= IDLE_THRESHOLD &&
+        finalAnswer.trim().length > 0 // Only trigger if user has written some content
       ) {
         triggerStarterFeedback();
         setHasGivenStarterFeedback(true);
@@ -616,7 +618,8 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
     setLastWritingTime(Date.now());
 
     const currentWordCount = getWordCount(newText);
-    if (currentWordCount >= lastFeedbackWordCount + WORD_COUNT_THRESHOLD) {
+    // Only trigger automatic feedback if there's actual content and it meets the threshold
+    if (currentWordCount >= lastFeedbackWordCount + WORD_COUNT_THRESHOLD && newText.trim().length > 0) {
       setLastFeedbackWordCount(currentWordCount);
       triggerAutomaticFeedback(newText);
     }
