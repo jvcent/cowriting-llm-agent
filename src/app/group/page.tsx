@@ -707,17 +707,22 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
       <div className="w-1/2 pl-2 flex flex-col h-full">
         <div className="flex-1 bg-white bg-opacity-10 rounded-md flex flex-col overflow-hidden">
           {/* Agent Avatars */}
-          <div className="bg-black bg-opacity-30 p-2 flex space-x-3">
+          <div className="bg-black bg-opacity-30 p-2 flex space-x-4">
             {currentAgents.map((agent) => (
-              <div key={agent.id} className="flex items-center">
+              <div key={agent.id} className="relative flex items-center group">
                 <Image
                   src={agent.avatar}
                   alt={agent.name}
                   width={40}
                   height={40}
-                  className="rounded-full border-2 border-white"
+                  className="rounded-full border-2 border-white cursor-pointer"
                 />
                 <span className="ml-2 text-white text-sm">{agent.name}</span>
+
+                {/* Tooltip */}
+                <div className="absolute left-0 top-12 w-64 bg-gray-900 text-white text-sm rounded-lg shadow-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
+                  {agent.introMessage}
+                </div>
               </div>
             ))}
           </div>
