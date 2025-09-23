@@ -19,9 +19,19 @@ interface Agent {
   systemPrompt: string;
 }
 
-interface TopicMap {
-  [key: string]: Agent[];
-}
+// Default Claude agent
+const CLAUDE_AGENT: Agent = {
+  id: "claude",
+  name: "Claude",
+  avatar: "/claude_avatar.png", // adjust path as needed
+  systemPrompt: `
+    You are Claude, a helpful AI writing assistant. 
+    Your job is to support the user in completing their writing task. 
+    Provide clear, concise guidance (≤ 50 words). 
+    Always address them as "you". 
+    Focus only on the writing prompt provided: "{{PROMPT}}"
+  `,
+};
 
 export default function SinglePage() {
   const router = useRouter();
@@ -50,7 +60,7 @@ export default function SinglePage() {
   const [timeLeft, setTimeLeft] = useState(timerDuration);
 
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
-  const [currentAgents, setCurrentAgents] = useState<Agent[]>([]);
+  const [currentAgents, setCurrentAgents] = useState<Agent[]>([CLAUDE_AGENT]);
   const [currentQuestionType, setCurrentQuestionType] = useState<
     "creative" | "argumentative"
   >("creative");
@@ -178,14 +188,11 @@ export default function SinglePage() {
   const triggerStarterFeedback = useCallback(async () => {
     if (roundEndedRef.current || hasGivenStarterFeedback) return;
     setHasGivenStarterFeedback(true);
-    const agent = currentAgents[0];
-    if (!agent) return;
-
     await postStaticMessageSequentially(
-      agent,
+      CLAUDE_AGENT,
       "I notice you've been writing for a while. Would you like some feedback on your progress so far?"
     );
-  }, [currentAgents, hasGivenStarterFeedback, postStaticMessageSequentially]);
+  }, [hasGivenStarterFeedback, postStaticMessageSequentially]);
 
   // -----------------------------
   // EFFECTS
@@ -199,20 +206,20 @@ export default function SinglePage() {
     }
   }, [messages, scrollToBottom]);
 
-  // Load a random question + agent
+  // Load a random question
   const fetchQuestions = useCallback(async () => {
-    const topics: TopicMap =
-      questionSequence === "creative" ? creativeTopics : argumentativeTopics;
-    const keys = Object.keys(topics);
-    const rk = keys[Math.floor(Math.random() * keys.length)];
-    const agentsList = topics[rk];
+    const topics =
+      questionSequence === "creative"
+        ? Object.keys(creativeTopics)
+        : Object.keys(argumentativeTopics);
+    const rk = topics[Math.floor(Math.random() * topics.length)];
 
     setCurrentQuestionType(
       questionSequence === "break"
         ? "creative"
         : (questionSequence as "creative" | "argumentative")
     );
-    setCurrentAgents([agentsList[Math.floor(Math.random() * agentsList.length)]]);
+    setCurrentAgents([CLAUDE_AGENT]);
     setCurrentQuestion(rk);
     setLoadedQuestions(true);
   }, [questionSequence]);
@@ -226,7 +233,7 @@ export default function SinglePage() {
   // -----------------------------
   const generateAIResponse = async (userMessage: string) => {
     if (roundEndedRef.current) return;
-    const agent = currentAgents[0];
+    const agent = CLAUDE_AGENT;
     setBotThinking(true);
 
     const tempId = getUniqueMessageId();
@@ -253,7 +260,10 @@ export default function SinglePage() {
           },
         ],
         {
-          systemPrompt: `${agent.systemPrompt}\n\nIMPORTANT INSTRUCTIONS:\n1. Always address the user directly using "you" instead of referring to them as "the user"\n2. Keep your responses concise and limited to 50 words or less`,
+          systemPrompt: agent.systemPrompt.replace(
+            "{{PROMPT}}",
+            currentQuestion || ""
+          ),
           model: currentModel,
         }
       );
@@ -320,17 +330,13 @@ export default function SinglePage() {
       setTimeLeft(timerDuration);
 
       const chosen = overrideType ?? currentQuestionType;
-      const topics: TopicMap =
-        chosen === "creative" ? creativeTopics : argumentativeTopics;
+      const topics =
+        chosen === "creative" ? Object.keys(creativeTopics) : Object.keys(argumentativeTopics);
 
       try {
-        const keys = Object.keys(topics);
-        const rk = keys[Math.floor(Math.random() * keys.length)];
-        const agentsList = topics[rk];
-
+        const rk = topics[Math.floor(Math.random() * topics.length)];
         setCurrentQuestion(rk);
-        setCurrentAgents(agentsList);
-
+        setCurrentAgents([CLAUDE_AGENT]);
         setIsQuestioningEnabled(true);
       } catch (err) {
         console.error(err);
@@ -374,7 +380,7 @@ export default function SinglePage() {
   // AUTO-FEEDBACK
   const triggerAutomaticFeedback = async (text: string) => {
     if (roundEndedRef.current) return;
-    const agent = currentAgents[0];
+    const agent = CLAUDE_AGENT;
 
     const msgId = getUniqueMessageId();
     setMessages((p) => [
@@ -397,7 +403,13 @@ export default function SinglePage() {
           timestamp: new Date().toISOString(),
         },
       ],
-      { systemPrompt: agent.systemPrompt, model: currentModel }
+      {
+        systemPrompt: agent.systemPrompt.replace(
+          "{{PROMPT}}",
+          currentQuestion || ""
+        ),
+        model: currentModel,
+      }
     );
 
     setMessages((p) =>
@@ -515,17 +527,15 @@ export default function SinglePage() {
       <div className="w-1/2 pl-2 flex flex-col h-full">
         <div className="flex-1 bg-white bg-opacity-10 rounded-md flex flex-col overflow-hidden">
           <div className="bg-black bg-opacity-30 p-2 flex space-x-3 items-center">
-            {currentAgents[0] && (
-              <Image
-                src={currentAgents[0].avatar}
-                alt={currentAgents[0].name}
-                width={40}
-                height={40}
-                className="rounded-full"
-              />
-            )}
+            <Image
+              src={CLAUDE_AGENT.avatar}
+              alt={CLAUDE_AGENT.name}
+              width={40}
+              height={40}
+              className="rounded-full"
+            />
             <span className="ml-2 text-white font-medium">
-              {currentAgents[0]?.name || "AI Assistant"}
+              {CLAUDE_AGENT.name}
             </span>
           </div>
           <div
@@ -543,8 +553,8 @@ export default function SinglePage() {
                 {msg.sender === "ai" && (
                   <div className="mr-2 flex-shrink-0">
                     <Image
-                      src={currentAgents[0].avatar}
-                      alt={currentAgents[0].name}
+                      src={CLAUDE_AGENT.avatar}
+                      alt={CLAUDE_AGENT.name}
                       width={40}
                       height={40}
                       className="rounded-full border-2 border-white"
@@ -562,7 +572,7 @@ export default function SinglePage() {
                 >
                   {msg.sender === "ai" && (
                     <div className="text-sm text-gray-300 mb-1 font-bold">
-                      {currentAgents[0].name}
+                      {CLAUDE_AGENT.name}
                     </div>
                   )}
                   {msg.sender === "system" && (
