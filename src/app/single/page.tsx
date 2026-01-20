@@ -55,7 +55,7 @@ export default function SinglePage() {
   const [currentModel] = useState(AI_MODELS.CLAUDE_HAIKU.id);
   const [, setLastUserActivityTime] = useState(Date.now());
 
-  const timerDuration = 300;
+  const timerDuration = 10;
   const [loadedQuestions, setLoadedQuestions] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerDuration);
 
@@ -64,9 +64,9 @@ export default function SinglePage() {
   const [currentQuestionType, setCurrentQuestionType] = useState<
     "creative" | "argumentative"
   >("creative");
-  const [questionSequence] = useState<
-    "creative" | "argumentative" | "break"
-  >("creative");
+  const [questionSequence] = useState<"creative" | "argumentative" | "break">(
+    "creative",
+  );
 
   const startTimeRef = useRef<number>(Date.now());
   const [hasGivenStarterFeedback, setHasGivenStarterFeedback] = useState(false);
@@ -108,7 +108,7 @@ export default function SinglePage() {
         forceScrollToBottomRef.current = false;
       }
     },
-    [userHasScrolled]
+    [userHasScrolled],
   );
 
   useEffect(() => {
@@ -162,7 +162,7 @@ export default function SinglePage() {
         setTypingMessageIds((prev) => prev.filter((id) => id !== tempId));
       }, 3000);
     },
-    [getUniqueMessageId]
+    [getUniqueMessageId],
   );
 
   // -----------------------------
@@ -172,25 +172,15 @@ export default function SinglePage() {
     roundEndedRef.current = true;
     setIsQuestioningEnabled(false);
     setEvaluationComplete(true);
-
-    if (finalAnswer.trim()) {
-      const userMsg: Message = {
-        id: getUniqueMessageId(),
-        sender: "user",
-        text: `My final answer is: ${finalAnswer}`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-      setFinalAnswer("");
-    }
-  }, [finalAnswer, getUniqueMessageId]);
+    // Don't add the answer to chat or clear it - it will be saved when user clicks Next Question
+  }, []);
 
   const triggerStarterFeedback = useCallback(async () => {
     if (roundEndedRef.current || hasGivenStarterFeedback) return;
     setHasGivenStarterFeedback(true);
     await postStaticMessageSequentially(
       CLAUDE_AGENT,
-      "I notice you've been writing for a while. Would you like some feedback on your progress so far?"
+      "I notice you've been writing for a while. Would you like some feedback on your progress so far?",
     );
   }, [hasGivenStarterFeedback, postStaticMessageSequentially]);
 
@@ -217,7 +207,7 @@ export default function SinglePage() {
     setCurrentQuestionType(
       questionSequence === "break"
         ? "creative"
-        : (questionSequence as "creative" | "argumentative")
+        : (questionSequence as "creative" | "argumentative"),
     );
     setCurrentAgents([CLAUDE_AGENT]);
     setCurrentQuestion(rk);
@@ -262,18 +252,18 @@ export default function SinglePage() {
         {
           systemPrompt: agent.systemPrompt.replace(
             "{{PROMPT}}",
-            currentQuestion || ""
+            currentQuestion || "",
           ),
           model: currentModel,
-        }
+        },
       );
 
       setMessages((prev) =>
         prev.map((m) =>
           m.id === tempId
             ? { ...m, text: response, timestamp: new Date().toISOString() }
-            : m
-        )
+            : m,
+        ),
       );
 
       setTypingMessageIds((prev) => [...prev, tempId]);
@@ -331,7 +321,9 @@ export default function SinglePage() {
 
       const chosen = overrideType ?? currentQuestionType;
       const topics =
-        chosen === "creative" ? Object.keys(creativeTopics) : Object.keys(argumentativeTopics);
+        chosen === "creative"
+          ? Object.keys(creativeTopics)
+          : Object.keys(argumentativeTopics);
 
       try {
         const rk = topics[Math.floor(Math.random() * topics.length)];
@@ -342,7 +334,7 @@ export default function SinglePage() {
         console.error(err);
       }
     },
-    [currentQuestionType]
+    [currentQuestionType],
   );
 
   useEffect(() => {
@@ -406,18 +398,18 @@ export default function SinglePage() {
       {
         systemPrompt: agent.systemPrompt.replace(
           "{{PROMPT}}",
-          currentQuestion || ""
+          currentQuestion || "",
         ),
         model: currentModel,
-      }
+      },
     );
 
     setMessages((p) =>
       p.map((m) =>
         m.id === msgId
           ? { ...m, text: resp, timestamp: new Date().toISOString() }
-          : m
-      )
+          : m,
+      ),
     );
 
     setTypingMessageIds((prev) => [...prev, msgId]);
@@ -493,8 +485,8 @@ export default function SinglePage() {
                   timeLeft > 20
                     ? "bg-green-700"
                     : timeLeft > 10
-                    ? "bg-yellow-600 animate-pulse"
-                    : "bg-red-700 animate-pulse"
+                      ? "bg-yellow-600 animate-pulse"
+                      : "bg-red-700 animate-pulse"
                 } ml-4`}
               >
                 <div className="text-xl font-mono text-white">
@@ -566,8 +558,8 @@ export default function SinglePage() {
                     msg.sender === "user"
                       ? "bg-blue-600 text-white"
                       : msg.sender === "system"
-                      ? "bg-purple-700 text-white"
-                      : "bg-white bg-opacity-10 text-white"
+                        ? "bg-purple-700 text-white"
+                        : "bg-white bg-opacity-10 text-white"
                   }`}
                 >
                   {msg.sender === "ai" && (

@@ -56,21 +56,24 @@ export default function GroupPage() {
   const lastManualScrollTimeRef = useRef(0);
   const forceScrollToBottomRef = useRef(false);
 
-  const scrollToBottom = useCallback((force = false) => {
-    const chatContainer = chatContainerRef.current;
-    if (!chatContainer) return;
+  const scrollToBottom = useCallback(
+    (force = false) => {
+      const chatContainer = chatContainerRef.current;
+      if (!chatContainer) return;
 
-    // If user manually scrolled up, do not auto-scroll unless `force` is true
-    if (manualScrollOverrideRef.current && !force) return;
+      // If user manually scrolled up, do not auto-scroll unless `force` is true
+      if (manualScrollOverrideRef.current && !force) return;
 
-    if (force || forceScrollToBottomRef.current || !userHasScrolled) {
-      chatContainer.scrollTo({
-        top: chatContainer.scrollHeight,
-        behavior: "smooth",
-      });
-      forceScrollToBottomRef.current = false;
-    }
-  }, [userHasScrolled]);
+      if (force || forceScrollToBottomRef.current || !userHasScrolled) {
+        chatContainer.scrollTo({
+          top: chatContainer.scrollHeight,
+          behavior: "smooth",
+        });
+        forceScrollToBottomRef.current = false;
+      }
+    },
+    [userHasScrolled],
+  );
 
   // Add auto-scroll effect when messages change
   useEffect(() => {
@@ -82,7 +85,7 @@ export default function GroupPage() {
   const [evaluationComplete, setEvaluationComplete] = useState(false);
 
   // Timer states
-  const timerDuration = 300;
+  const timerDuration = 10;
   const [timeLeft, setTimeLeft] = useState(timerDuration);
   const roundEndedRef = useRef(false);
 
@@ -91,7 +94,9 @@ export default function GroupPage() {
   const [feedbackSessionId, setFeedbackSessionId] = useState(0);
 
   // Question sets
-  const [currentQuestionSet, setCurrentQuestionSet] = useState<"creative" | "argumentative">("creative");
+  const [currentQuestionSet, setCurrentQuestionSet] = useState<
+    "creative" | "argumentative"
+  >("creative");
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [currentAgents, setCurrentAgents] = useState<Agent[]>([]);
   const [loadedQuestions, setLoadedQuestions] = useState(false);
@@ -149,7 +154,7 @@ export default function GroupPage() {
       Math.abs(
         chatContainer.scrollHeight -
           chatContainer.scrollTop -
-          chatContainer.clientHeight
+          chatContainer.clientHeight,
       ) < 150;
 
     if (!nearBottom) {
@@ -169,23 +174,8 @@ export default function GroupPage() {
     roundEndedRef.current = true;
     setIsQuestioningEnabled(false);
     setEvaluationComplete(true);
-
-    // Post user's final answer as a message (so the bots can see it if needed)
-    if (scratchboardContent.trim()) {
-      const textToSubmit = finalAnswer.trim()
-        ? finalAnswer
-        : "Time expired - Automatic submission";
-
-      const userMsg: Message = {
-        id: getUniqueMessageId(),
-        sender: "user",
-        text: `My final answer is: ${textToSubmit}\n\nMy reasoning:\n${scratchboardContent}`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-      setFinalAnswer("");
-    }
-  }, [scratchboardContent, finalAnswer, getUniqueMessageId]);
+    // Don't add the answer to chat or clear it - it will be saved when user clicks Next Question
+  }, []);
 
   useEffect(() => {
     if (timeLeft <= 0) {
@@ -260,7 +250,7 @@ export default function GroupPage() {
       setCurrentAgents(chosenAgents);
       setIsQuestioningEnabled(true);
     },
-    [currentQuestionSet]
+    [currentQuestionSet],
   );
 
   useEffect(() => {
@@ -310,7 +300,7 @@ export default function GroupPage() {
           {
             systemPrompt: `${agent.systemPrompt}\n\nIMPORTANT INSTRUCTIONS:\n1. Always address the user directly using "you" instead of referring to them as "the user"\n2. Keep your responses concise and limited to 50 words or less`,
             model: currentModel,
-          }
+          },
         );
         return response;
       } catch (err) {
@@ -318,7 +308,7 @@ export default function GroupPage() {
         return "(*Error calling AI*)";
       }
     },
-    [currentModel]
+    [currentModel],
   );
 
   const generateResponsesFromAllAgents = async (userMessage: string) => {
@@ -338,15 +328,17 @@ export default function GroupPage() {
         .map((m) => {
           const senderName =
             m.sender === "ai"
-              ? currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI"
+              ? (currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI")
               : "USER";
           return `${senderName}: ${m.text}`;
         })
         .join("\n");
 
       // Get the other agents who are also responding
-      const otherAgentsInThisRound = shuffledAgents.filter(a => a.id !== agent.id);
-      const agentNames = otherAgentsInThisRound.map(a => a.name).join(", ");
+      const otherAgentsInThisRound = shuffledAgents.filter(
+        (a) => a.id !== agent.id,
+      );
+      const agentNames = otherAgentsInThisRound.map((a) => a.name).join(", ");
 
       let prompt: string;
       if (i === 0) {
@@ -363,9 +355,10 @@ IMPORTANT: Respond directly with your message content only. Do not include your 
         // Subsequent agents can build on what previous agents said
         const recentAgentResponses = currentMessages
           .slice(-i) // Get the most recent agent responses from this round
-          .filter(m => m.sender === "ai")
-          .map(m => {
-            const agentName = currentAgents.find(a => a.id === m.agentId)?.name ?? "AI";
+          .filter((m) => m.sender === "ai")
+          .map((m) => {
+            const agentName =
+              currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI";
             return `${agentName}: ${m.text}`;
           })
           .join("\n");
@@ -395,8 +388,8 @@ IMPORTANT: Respond directly with your message content only. Do not include your 
 
       // Clean up response text - remove leading colons or agent names
       const cleanedResponse = aiResponseText
-        .replace(/^[^:]*:\s*/, '') // Remove "AgentName: " pattern at start
-        .replace(/^:\s*/, '') // Remove standalone colon at start
+        .replace(/^[^:]*:\s*/, "") // Remove "AgentName: " pattern at start
+        .replace(/^:\s*/, "") // Remove standalone colon at start
         .trim();
 
       const messageId = getUniqueMessageId();
@@ -473,9 +466,10 @@ IMPORTANT: Respond directly with your feedback content only. Do not include your
         // Subsequent agents can reference previous feedback
         const recentFeedback = currentMessages
           .slice(-i)
-          .filter(m => m.sender === "ai")
-          .map(m => {
-            const agentName = currentAgents.find(a => a.id === m.agentId)?.name ?? "AI";
+          .filter((m) => m.sender === "ai")
+          .map((m) => {
+            const agentName =
+              currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI";
             return `${agentName}: ${m.text}`;
           })
           .join("\n");
@@ -494,8 +488,8 @@ IMPORTANT: Respond directly with your feedback content only. Do not include your
 
       // Clean up response text - remove leading colons or agent names
       const cleanedResponse = aiResponseText
-        .replace(/^[^:]*:\s*/, '') // Remove "AgentName: " pattern at start
-        .replace(/^:\s*/, '') // Remove standalone colon at start
+        .replace(/^[^:]*:\s*/, "") // Remove "AgentName: " pattern at start
+        .replace(/^:\s*/, "") // Remove standalone colon at start
         .trim();
 
       const messageId = getUniqueMessageId();
@@ -530,8 +524,10 @@ IMPORTANT: Respond directly with your feedback content only. Do not include your
 
     for (let i = 0; i < shuffledAgents.length; i++) {
       const agent = shuffledAgents[i];
-      const otherAgentsInThisRound = shuffledAgents.filter(a => a.id !== agent.id);
-      const agentNames = otherAgentsInThisRound.map(a => a.name).join(", ");
+      const otherAgentsInThisRound = shuffledAgents.filter(
+        (a) => a.id !== agent.id,
+      );
+      const agentNames = otherAgentsInThisRound.map((a) => a.name).join(", ");
 
       let prompt: string;
       if (i === 0) {
@@ -543,9 +539,10 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
         // Subsequent agents can build on previous suggestions
         const previousSuggestions = currentMessages
           .slice(-i)
-          .filter(m => m.sender === "ai")
-          .map(m => {
-            const agentName = currentAgents.find(a => a.id === m.agentId)?.name ?? "AI";
+          .filter((m) => m.sender === "ai")
+          .map((m) => {
+            const agentName =
+              currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI";
             return `${agentName}: ${m.text}`;
           })
           .join("\n");
@@ -564,8 +561,8 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
 
       // Clean up response text - remove leading colons or agent names
       const cleanedResponse = aiResponseText
-        .replace(/^[^:]*:\s*/, '') // Remove "AgentName: " pattern at start
-        .replace(/^:\s*/, '') // Remove standalone colon at start
+        .replace(/^[^:]*:\s*/, "") // Remove "AgentName: " pattern at start
+        .replace(/^:\s*/, "") // Remove standalone colon at start
         .trim();
 
       const messageId = getUniqueMessageId();
@@ -587,7 +584,13 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
 
       await new Promise((res) => setTimeout(res, 400));
     }
-  }, [currentAgents, currentQuestion, getUniqueMessageId, callAgentForResponse, messages]);
+  }, [
+    currentAgents,
+    currentQuestion,
+    getUniqueMessageId,
+    callAgentForResponse,
+    messages,
+  ]);
 
   useEffect(() => {
     if (roundEndedRef.current || hasGivenStarterFeedback) return;
@@ -608,10 +611,15 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
     }, 5000);
 
     return () => clearInterval(checkIdleInterval);
-  }, [lastWritingTime, finalAnswer, hasGivenStarterFeedback, triggerStarterFeedback]);
+  }, [
+    lastWritingTime,
+    finalAnswer,
+    hasGivenStarterFeedback,
+    triggerStarterFeedback,
+  ]);
 
   const handleFinalAnswerChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const newText = e.target.value;
     setFinalAnswer(newText);
@@ -619,7 +627,10 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
 
     const currentWordCount = getWordCount(newText);
     // Only trigger automatic feedback if there's actual content and it meets the threshold
-    if (currentWordCount >= lastFeedbackWordCount + WORD_COUNT_THRESHOLD && newText.trim().length > 0) {
+    if (
+      currentWordCount >= lastFeedbackWordCount + WORD_COUNT_THRESHOLD &&
+      newText.trim().length > 0
+    ) {
       setLastFeedbackWordCount(currentWordCount);
       triggerAutomaticFeedback(newText);
     }
@@ -668,8 +679,8 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
                   timeLeft > 20
                     ? "bg-green-700"
                     : timeLeft > 10
-                    ? "bg-yellow-600 animate-pulse"
-                    : "bg-red-700 animate-pulse"
+                      ? "bg-yellow-600 animate-pulse"
+                      : "bg-red-700 animate-pulse"
                 } ml-4`}
               >
                 <div className="text-xl font-mono text-white">
@@ -765,8 +776,8 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
                     msg.sender === "user"
                       ? "bg-blue-600 text-white"
                       : msg.sender === "system"
-                      ? "bg-purple-700 text-white"
-                      : "bg-white bg-opacity-10 text-white"
+                        ? "bg-purple-700 text-white"
+                        : "bg-white bg-opacity-10 text-white"
                   }`}
                 >
                   {/* Bot name above message */}

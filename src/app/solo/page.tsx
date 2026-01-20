@@ -10,7 +10,7 @@ export default function SoloPage() {
 
   /* ──────────────────── state ──────────────────── */
   const [finalAnswer, setFinalAnswer] = useState(""); // essay text
-  const timerDuration = 300; // seconds
+  const timerDuration = 10; // seconds
   const [timeLeft, setTimeLeft] = useState(timerDuration); // countdown
   const roundEndedRef = useRef(false); // flag: time up
   const startTimeRef = useRef(Date.now()); // for elapsed time
