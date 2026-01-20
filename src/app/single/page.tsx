@@ -431,12 +431,12 @@ export default function SinglePage() {
 
   // Next question / finish
   const handleNextQuestion = () => {
-    if (currentQuestion && finalAnswer) {
+    if (currentQuestion) {
       const spent = Math.floor((Date.now() - startTimeRef.current) / 1000);
       addSingleEssay({
         questionType: currentQuestionType,
         question: currentQuestion,
-        essay: finalAnswer,
+        essay: finalAnswer || "[No answer provided]",
         chatLog: messages,
         timeSpent: spent,
       });

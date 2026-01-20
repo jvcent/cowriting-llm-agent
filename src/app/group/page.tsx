@@ -263,12 +263,12 @@ export default function GroupPage() {
   // Move to next question or to "break" route
   const handleNextQuestion = () => {
     // Save current essay data before moving to next
-    if (currentQuestion && finalAnswer) {
+    if (currentQuestion) {
       const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
       addGroupEssay({
         questionType: currentQuestionSet,
         question: currentQuestion,
-        essay: finalAnswer,
+        essay: finalAnswer || "[No answer provided]",
         chatLog: messages,
         timeSpent,
       });
