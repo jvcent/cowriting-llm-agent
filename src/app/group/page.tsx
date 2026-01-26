@@ -51,13 +51,13 @@ const CHATGPT_AGENT: Agent = {
   name: "ChatGPT",
   avatar: "/gpt_avatar.png",
   systemPrompt: `
-    You are ChatGPT, a helpful AI writing assistant. 
+    You are ChatGPT, powered by GPT-5.2, a helpful AI writing assistant. 
     Your job is to support the user in completing their writing task. 
     Provide clear, concise guidance (≤ 50 words). 
     Always address them as "you". 
     Focus only on the writing prompt provided: "{{PROMPT}}"
   `,
-  introMessage: "I'm ChatGPT, ready to assist with your writing.",
+  introMessage: "I'm ChatGPT (GPT-5.2), ready to assist with your writing.",
 };
 
 // ----------------------------------------------------------------
@@ -330,6 +330,14 @@ export default function GroupPage() {
   const callAgentForResponse = useCallback(
     async (agent: Agent, prompt: string): Promise<string> => {
       try {
+        // Select model based on agent
+        let modelId = currentModel;
+        if (agent.id === "claude") {
+          modelId = AI_MODELS.CLAUDE_OPUS_4_5.id;
+        } else if (agent.id === "chatgpt") {
+          modelId = AI_MODELS.GPT_5_2.id;
+        }
+
         const response = await aiService.generateResponse(
           [
             {
@@ -340,7 +348,7 @@ export default function GroupPage() {
           ],
           {
             systemPrompt: `${agent.systemPrompt}\n\nIMPORTANT INSTRUCTIONS:\n1. Always address the user directly using "you" instead of referring to them as "the user"\n2. Keep your responses concise and limited to 50 words or less`,
-            model: currentModel,
+            model: modelId,
           },
         );
         return response;

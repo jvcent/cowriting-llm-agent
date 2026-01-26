@@ -52,7 +52,7 @@ export default function SinglePage() {
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const [currentModel] = useState(AI_MODELS.CLAUDE_HAIKU.id);
+  const [currentModel] = useState(AI_MODELS.CLAUDE_OPUS_4_5.id);
   const [, setLastUserActivityTime] = useState(Date.now());
 
   const timerDuration = 10;
