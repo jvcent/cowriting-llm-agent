@@ -29,7 +29,36 @@ interface Agent {
 // ----------------------------------------------------------------
 // Constants
 // ----------------------------------------------------------------
-const MAX_AGENTS_PER_ROUND = 3; // change this if you ever need more agents
+const MAX_AGENTS_PER_ROUND = 2; // change this if you ever need more agents
+
+// Default agents
+const CLAUDE_AGENT: Agent = {
+  id: "claude",
+  name: "Claude",
+  avatar: "/claude_avatar.png",
+  systemPrompt: `
+    You are Claude, a helpful AI writing assistant. 
+    Your job is to support the user in completing their writing task. 
+    Provide clear, concise guidance (≤ 50 words). 
+    Always address them as "you". 
+    Focus only on the writing prompt provided: "{{PROMPT}}"
+  `,
+  introMessage: "I'm Claude, here to help with your writing.",
+};
+
+const CHATGPT_AGENT: Agent = {
+  id: "chatgpt",
+  name: "ChatGPT",
+  avatar: "/gpt_avatar.png",
+  systemPrompt: `
+    You are ChatGPT, a helpful AI writing assistant. 
+    Your job is to support the user in completing their writing task. 
+    Provide clear, concise guidance (≤ 50 words). 
+    Always address them as "you". 
+    Focus only on the writing prompt provided: "{{PROMPT}}"
+  `,
+  introMessage: "I'm ChatGPT, ready to assist with your writing.",
+};
 
 // ----------------------------------------------------------------
 // Component
@@ -237,12 +266,24 @@ export default function GroupPage() {
         chosenSet === "creative" ? creativeTopics : argumentativeTopics;
       const topicKeys = Object.keys(topicsObj);
       const randomKey = topicKeys[Math.floor(Math.random() * topicKeys.length)];
-      const allAgents = topicsObj[randomKey as keyof typeof topicsObj]; // could be >3
 
-      // Keep only up to MAX_AGENTS_PER_ROUND agents in random order
-      const chosenAgents: Agent[] = [...allAgents]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, MAX_AGENTS_PER_ROUND);
+      // Use fixed Claude and ChatGPT agents
+      const chosenAgents: Agent[] = [
+        {
+          ...CLAUDE_AGENT,
+          systemPrompt: CLAUDE_AGENT.systemPrompt.replace(
+            "{{PROMPT}}",
+            randomKey,
+          ),
+        },
+        {
+          ...CHATGPT_AGENT,
+          systemPrompt: CHATGPT_AGENT.systemPrompt.replace(
+            "{{PROMPT}}",
+            randomKey,
+          ),
+        },
+      ];
 
       setCurrentQuestion(randomKey);
 
