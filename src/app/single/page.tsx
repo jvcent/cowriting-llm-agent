@@ -33,6 +33,20 @@ const CLAUDE_AGENT: Agent = {
   `,
 };
 
+// GPT agent (same as in GroupPage)
+const CHATGPT_AGENT: Agent = {
+  id: "chatgpt",
+  name: "ChatGPT",
+  avatar: "/gpt_avatar.png",
+  systemPrompt: `
+    You are ChatGPT, powered by GPT-5.2, a helpful AI writing assistant. 
+    Your job is to support the user in completing their writing task. 
+    Provide clear, concise guidance (≤ 50 words). 
+    Always address them as "you". 
+    Focus only on the writing prompt provided: "{{PROMPT}}"
+  `,
+};
+
 export default function SinglePage() {
   const router = useRouter();
   const { addSingleEssay } = useFlow();
@@ -44,7 +58,6 @@ export default function SinglePage() {
   const [, setCompletedMessageIds] = useState<number[]>([]);
   const [input, setInput] = useState("");
   const [finalAnswer, setFinalAnswer] = useState("");
-  const [nextMessageId, setNextMessageId] = useState(3);
   const [typingMessageIds, setTypingMessageIds] = useState<number[]>([]);
   const [isQuestioningEnabled, setIsQuestioningEnabled] = useState(true);
   const [evaluationComplete, setEvaluationComplete] = useState(false);
@@ -55,12 +68,16 @@ export default function SinglePage() {
   const [currentModel] = useState(AI_MODELS.CLAUDE_OPUS_4_5.id);
   const [, setLastUserActivityTime] = useState(Date.now());
 
-  const timerDuration = 10;
+  const timerDuration = 300;
   const [loadedQuestions, setLoadedQuestions] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerDuration);
 
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
   const [currentAgents, setCurrentAgents] = useState<Agent[]>([CLAUDE_AGENT]);
+  const [assignedAgentId, setAssignedAgentId] = useState<string | null>(null);
+  const [assignedAgentName, setAssignedAgentName] = useState<string | null>(
+    null,
+  );
   const [currentQuestionType, setCurrentQuestionType] = useState<
     "creative" | "argumentative"
   >("creative");
@@ -84,7 +101,6 @@ export default function SinglePage() {
   const getUniqueMessageId = useCallback(() => {
     const id = nextMessageIdRef.current;
     nextMessageIdRef.current += 1;
-    setNextMessageId(nextMessageIdRef.current);
     return id;
   }, []);
 
@@ -178,11 +194,12 @@ export default function SinglePage() {
   const triggerStarterFeedback = useCallback(async () => {
     if (roundEndedRef.current || hasGivenStarterFeedback) return;
     setHasGivenStarterFeedback(true);
+    const agent = currentAgents[0] || CLAUDE_AGENT;
     await postStaticMessageSequentially(
-      CLAUDE_AGENT,
+      agent,
       "I notice you've been writing for a while. Would you like some feedback on your progress so far?",
     );
-  }, [hasGivenStarterFeedback, postStaticMessageSequentially]);
+  }, [hasGivenStarterFeedback, postStaticMessageSequentially, currentAgents]);
 
   // -----------------------------
   // EFFECTS
@@ -223,7 +240,7 @@ export default function SinglePage() {
   // -----------------------------
   const generateAIResponse = async (userMessage: string) => {
     if (roundEndedRef.current) return;
-    const agent = CLAUDE_AGENT;
+    const agent = currentAgents[0] || CLAUDE_AGENT;
     setBotThinking(true);
 
     const tempId = getUniqueMessageId();
@@ -243,7 +260,7 @@ export default function SinglePage() {
         [
           ...messages,
           {
-            id: nextMessageId,
+            id: nextMessageIdRef.current,
             sender: "user",
             text: userMessage,
             timestamp: new Date().toISOString(),
@@ -278,7 +295,7 @@ export default function SinglePage() {
     }
   };
 
-  const handleUserQuestion = () => {
+  const handleUserQuestion = useCallback(() => {
     if (!input.trim() || typingMessageIds.length) return;
 
     const userText = input.trim();
@@ -297,7 +314,13 @@ export default function SinglePage() {
     setTimeout(() => scrollToBottom(true), 50);
 
     generateAIResponse(userText);
-  };
+  }, [
+    input,
+    typingMessageIds.length,
+    getUniqueMessageId,
+    generateAIResponse,
+    scrollToBottom,
+  ]);
 
   // -----------------------------
   // ROUND MANAGEMENT
@@ -328,7 +351,18 @@ export default function SinglePage() {
       try {
         const rk = topics[Math.floor(Math.random() * topics.length)];
         setCurrentQuestion(rk);
-        setCurrentAgents([CLAUDE_AGENT]);
+
+        // Randomly select between Claude and ChatGPT
+        const selectedAgent =
+          Math.random() > 0.5 ? CLAUDE_AGENT : CHATGPT_AGENT;
+        const agentWithPrompt = {
+          ...selectedAgent,
+          systemPrompt: selectedAgent.systemPrompt.replace("{{PROMPT}}", rk),
+        };
+        setCurrentAgents([agentWithPrompt]);
+        // Explicitly store the assigned agent type
+        setAssignedAgentId(selectedAgent.id);
+        setAssignedAgentName(selectedAgent.name);
         setIsQuestioningEnabled(true);
       } catch (err) {
         console.error(err);
@@ -370,64 +404,70 @@ export default function SinglePage() {
   }, [timeLeft, finalAnswer]);
 
   // AUTO-FEEDBACK
-  const triggerAutomaticFeedback = async (text: string) => {
-    if (roundEndedRef.current) return;
-    const agent = CLAUDE_AGENT;
+  const triggerAutomaticFeedback = useCallback(
+    async (text: string) => {
+      if (roundEndedRef.current) return;
+      const agent = currentAgents[0] || CLAUDE_AGENT;
 
-    const msgId = getUniqueMessageId();
-    setMessages((p) => [
-      ...p,
-      {
-        id: msgId,
-        sender: "ai",
-        text: "...",
-        agentId: agent.id,
-        timestamp: new Date().toISOString(),
-      },
-    ]);
-
-    const resp = await aiService.generateResponse(
-      [
+      const msgId = getUniqueMessageId();
+      setMessages((p) => [
+        ...p,
         {
-          id: nextMessageId,
-          sender: "user",
-          text: `Please provide brief, constructive feedback on what has been written so far: "${text}"`,
+          id: msgId,
+          sender: "ai",
+          text: "...",
+          agentId: agent.id,
           timestamp: new Date().toISOString(),
         },
-      ],
-      {
-        systemPrompt: agent.systemPrompt.replace(
-          "{{PROMPT}}",
-          currentQuestion || "",
+      ]);
+
+      const resp = await aiService.generateResponse(
+        [
+          {
+            id: nextMessageIdRef.current,
+            sender: "user",
+            text: `Please provide brief, constructive feedback on what has been written so far: "${text}"`,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        {
+          systemPrompt: agent.systemPrompt.replace(
+            "{{PROMPT}}",
+            currentQuestion || "",
+          ),
+          model: currentModel,
+        },
+      );
+
+      setMessages((p) =>
+        p.map((m) =>
+          m.id === msgId
+            ? { ...m, text: resp, timestamp: new Date().toISOString() }
+            : m,
         ),
-        model: currentModel,
-      },
-    );
+      );
 
-    setMessages((p) =>
-      p.map((m) =>
-        m.id === msgId
-          ? { ...m, text: resp, timestamp: new Date().toISOString() }
-          : m,
-      ),
-    );
-
-    setTypingMessageIds((prev) => [...prev, msgId]);
-    setTimeout(() => {
-      setTypingMessageIds((prev) => prev.filter((id) => id !== msgId));
-    }, 3000);
-  };
+      setTypingMessageIds((prev) => [...prev, msgId]);
+      setTimeout(() => {
+        setTypingMessageIds((prev) => prev.filter((id) => id !== msgId));
+      }, 3000);
+    },
+    [currentAgents, currentQuestion, currentModel, getUniqueMessageId],
+  );
 
   // Essay change handler
-  const handleEssayChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const txt = e.target.value;
-    setFinalAnswer(txt);
-    const wc = getWordCount(txt);
-    if (wc >= lastFeedbackWordCount + 35) {
-      setLastFeedbackWordCount(wc);
-      triggerAutomaticFeedback(txt);
-    }
-  };
+  const handleEssayChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const txt = e.target.value;
+      setFinalAnswer(txt);
+      const wc = getWordCount(txt);
+      if (wc >= lastFeedbackWordCount + 35) {
+        setLastFeedbackWordCount(wc);
+        triggerAutomaticFeedback(txt);
+      }
+    },
+    [lastFeedbackWordCount, triggerAutomaticFeedback],
+  );
 
   // Next question / finish
   const handleNextQuestion = () => {
@@ -439,6 +479,8 @@ export default function SinglePage() {
         essay: finalAnswer || "[No answer provided]",
         chatLog: messages,
         timeSpent: spent,
+        assignedAgentId: assignedAgentId || undefined,
+        assignedAgentName: assignedAgentName || undefined,
       });
     }
 
@@ -520,14 +562,14 @@ export default function SinglePage() {
         <div className="flex-1 bg-white bg-opacity-10 rounded-md flex flex-col overflow-hidden">
           <div className="bg-black bg-opacity-30 p-2 flex space-x-3 items-center">
             <Image
-              src={CLAUDE_AGENT.avatar}
-              alt={CLAUDE_AGENT.name}
+              src={currentAgents[0]?.avatar || CLAUDE_AGENT.avatar}
+              alt={currentAgents[0]?.name || CLAUDE_AGENT.name}
               width={40}
               height={40}
               className="rounded-full"
             />
             <span className="ml-2 text-white font-medium">
-              {CLAUDE_AGENT.name}
+              {currentAgents[0]?.name || CLAUDE_AGENT.name}
             </span>
           </div>
           <div
@@ -545,8 +587,8 @@ export default function SinglePage() {
                 {msg.sender === "ai" && (
                   <div className="mr-2 flex-shrink-0">
                     <Image
-                      src={CLAUDE_AGENT.avatar}
-                      alt={CLAUDE_AGENT.name}
+                      src={currentAgents[0]?.avatar || CLAUDE_AGENT.avatar}
+                      alt={currentAgents[0]?.name || CLAUDE_AGENT.name}
                       width={40}
                       height={40}
                       className="rounded-full border-2 border-white"
@@ -564,7 +606,7 @@ export default function SinglePage() {
                 >
                   {msg.sender === "ai" && (
                     <div className="text-sm text-gray-300 mb-1 font-bold">
-                      {CLAUDE_AGENT.name}
+                      {currentAgents[0]?.name || CLAUDE_AGENT.name}
                     </div>
                   )}
                   {msg.sender === "system" && (

@@ -114,7 +114,7 @@ export default function GroupPage() {
   const [evaluationComplete, setEvaluationComplete] = useState(false);
 
   // Timer states
-  const timerDuration = 10;
+  const timerDuration = 300;
   const [timeLeft, setTimeLeft] = useState(timerDuration);
   const roundEndedRef = useRef(false);
 
@@ -360,39 +360,40 @@ export default function GroupPage() {
     [currentModel],
   );
 
-  const generateResponsesFromAllAgents = async (userMessage: string) => {
-    const activeFeedback = feedbackSessionId;
+  const generateResponsesFromAllAgents = useCallback(
+    async (userMessage: string) => {
+      const activeFeedback = feedbackSessionId;
 
-    // Randomize the order in which agents respond
-    const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
+      // Randomize the order in which agents respond
+      const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
 
-    // Track messages as they're added to include new agent responses in subsequent prompts
-    let currentMessages = [...messages];
+      // Track messages as they're added to include new agent responses in subsequent prompts
+      let currentMessages = [...messages];
 
-    for (let i = 0; i < shuffledAgents.length; i++) {
-      const agent = shuffledAgents[i];
-      if (feedbackSessionId !== activeFeedback) break;
+      for (let i = 0; i < shuffledAgents.length; i++) {
+        const agent = shuffledAgents[i];
+        if (feedbackSessionId !== activeFeedback) break;
 
-      const conversationSoFar = currentMessages
-        .map((m) => {
-          const senderName =
-            m.sender === "ai"
-              ? (currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI")
-              : "USER";
-          return `${senderName}: ${m.text}`;
-        })
-        .join("\n");
+        const conversationSoFar = currentMessages
+          .map((m) => {
+            const senderName =
+              m.sender === "ai"
+                ? (currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI")
+                : "USER";
+            return `${senderName}: ${m.text}`;
+          })
+          .join("\n");
 
-      // Get the other agents who are also responding
-      const otherAgentsInThisRound = shuffledAgents.filter(
-        (a) => a.id !== agent.id,
-      );
-      const agentNames = otherAgentsInThisRound.map((a) => a.name).join(", ");
+        // Get the other agents who are also responding
+        const otherAgentsInThisRound = shuffledAgents.filter(
+          (a) => a.id !== agent.id,
+        );
+        const agentNames = otherAgentsInThisRound.map((a) => a.name).join(", ");
 
-      let prompt: string;
-      if (i === 0) {
-        // First agent responds to user
-        prompt = `CONVERSATION SO FAR:
+        let prompt: string;
+        if (i === 0) {
+          // First agent responds to user
+          prompt = `CONVERSATION SO FAR:
 ${conversationSoFar}
 
 USER just asked: "${userMessage}"
@@ -400,19 +401,19 @@ USER just asked: "${userMessage}"
 You are responding as "${agent.name}" in a group discussion with ${agentNames}. Other agents will also respond to this question, so feel free to take a specific angle or focus on particular aspects. Consider the previous conversation when forming your response.
 
 IMPORTANT: Respond directly with your message content only. Do not include your name or a colon at the beginning of your response.`;
-      } else {
-        // Subsequent agents can build on what previous agents said
-        const recentAgentResponses = currentMessages
-          .slice(-i) // Get the most recent agent responses from this round
-          .filter((m) => m.sender === "ai")
-          .map((m) => {
-            const agentName =
-              currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI";
-            return `${agentName}: ${m.text}`;
-          })
-          .join("\n");
+        } else {
+          // Subsequent agents can build on what previous agents said
+          const recentAgentResponses = currentMessages
+            .slice(-i) // Get the most recent agent responses from this round
+            .filter((m) => m.sender === "ai")
+            .map((m) => {
+              const agentName =
+                currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI";
+              return `${agentName}: ${m.text}`;
+            })
+            .join("\n");
 
-        prompt = `CONVERSATION SO FAR:
+          prompt = `CONVERSATION SO FAR:
 ${conversationSoFar}
 
 USER just asked: "${userMessage}"
@@ -430,44 +431,52 @@ You are "${agent.name}". Now it's your turn to respond. You can:
 Make your response feel like part of a natural group discussion where ideas flow together.
 
 IMPORTANT: Respond directly with your message content only. Do not include your name or a colon at the beginning of your response.`;
+        }
+
+        const aiResponseText = await callAgentForResponse(agent, prompt);
+        if (feedbackSessionId !== activeFeedback) break;
+
+        // Clean up response text - remove leading colons or agent names
+        const cleanedResponse = aiResponseText
+          .replace(/^[^:]*:\s*/, "") // Remove "AgentName: " pattern at start
+          .replace(/^:\s*/, "") // Remove standalone colon at start
+          .trim();
+
+        const messageId = getUniqueMessageId();
+        const newMessage = {
+          id: messageId,
+          sender: "ai" as const,
+          text: cleanedResponse,
+          agentId: agent.id,
+          timestamp: new Date().toISOString(),
+        };
+
+        // Add to both state and our tracking array
+        setMessages((prev) => [...prev, newMessage]);
+        currentMessages = [...currentMessages, newMessage];
+
+        setTypingMessageIds((prev) => [...prev, messageId]);
+        setTimeout(() => {
+          setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
+        }, 1000);
+
+        // Slightly longer delay between agents to make the conversation feel more natural
+        await new Promise((res) => setTimeout(res, 800));
       }
-
-      const aiResponseText = await callAgentForResponse(agent, prompt);
-      if (feedbackSessionId !== activeFeedback) break;
-
-      // Clean up response text - remove leading colons or agent names
-      const cleanedResponse = aiResponseText
-        .replace(/^[^:]*:\s*/, "") // Remove "AgentName: " pattern at start
-        .replace(/^:\s*/, "") // Remove standalone colon at start
-        .trim();
-
-      const messageId = getUniqueMessageId();
-      const newMessage = {
-        id: messageId,
-        sender: "ai" as const,
-        text: cleanedResponse,
-        agentId: agent.id,
-        timestamp: new Date().toISOString(),
-      };
-
-      // Add to both state and our tracking array
-      setMessages((prev) => [...prev, newMessage]);
-      currentMessages = [...currentMessages, newMessage];
-
-      setTypingMessageIds((prev) => [...prev, messageId]);
-      setTimeout(() => {
-        setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
-      }, 1000);
-
-      // Slightly longer delay between agents to make the conversation feel more natural
-      await new Promise((res) => setTimeout(res, 800));
-    }
-  };
+    },
+    [
+      feedbackSessionId,
+      currentAgents,
+      messages,
+      getUniqueMessageId,
+      callAgentForResponse,
+    ],
+  );
 
   // ----------------------------------------------------------------
   // User Interaction
   // ----------------------------------------------------------------
-  const handleUserQuestion = async () => {
+  const handleUserQuestion = useCallback(async () => {
     if (!input.trim()) return;
 
     setFeedbackSessionId((prev) => prev + 1);
@@ -485,7 +494,12 @@ IMPORTANT: Respond directly with your message content only. Do not include your 
     setTimeout(() => scrollToBottom(true), 100);
 
     await generateResponsesFromAllAgents(userMsg.text!);
-  };
+  }, [
+    input,
+    getUniqueMessageId,
+    scrollToBottom,
+    generateResponsesFromAllAgents,
+  ]);
 
   const getWordCount = (text: string) =>
     text
@@ -493,37 +507,38 @@ IMPORTANT: Respond directly with your message content only. Do not include your 
       .split(/\s+/)
       .filter((w) => w.length > 0).length;
 
-  const triggerAutomaticFeedback = async (text: string) => {
-    if (roundEndedRef.current) return;
+  const triggerAutomaticFeedback = useCallback(
+    async (text: string) => {
+      if (roundEndedRef.current) return;
 
-    setFeedbackSessionId((prev) => prev + 1);
+      setFeedbackSessionId((prev) => prev + 1);
 
-    // Randomize order for more natural feedback flow
-    const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
-    let currentMessages = [...messages];
+      // Randomize order for more natural feedback flow
+      const shuffledAgents = [...currentAgents].sort(() => Math.random() - 0.5);
+      let currentMessages = [...messages];
 
-    for (let i = 0; i < shuffledAgents.length; i++) {
-      const agent = shuffledAgents[i];
+      for (let i = 0; i < shuffledAgents.length; i++) {
+        const agent = shuffledAgents[i];
 
-      let prompt: string;
-      if (i === 0) {
-        // First agent provides initial feedback
-        prompt = `Please provide brief, constructive feedback on what has been written so far: "${text}". Other agents will also provide feedback, so focus on your unique perspective as "${agent.name}".
+        let prompt: string;
+        if (i === 0) {
+          // First agent provides initial feedback
+          prompt = `Please provide brief, constructive feedback on what has been written so far: "${text}". Other agents will also provide feedback, so focus on your unique perspective as "${agent.name}".
 
 IMPORTANT: Respond directly with your feedback content only. Do not include your name or a colon at the beginning of your response. Limit your response to 50 words or less.`;
-      } else {
-        // Subsequent agents can reference previous feedback
-        const recentFeedback = currentMessages
-          .slice(-i)
-          .filter((m) => m.sender === "ai")
-          .map((m) => {
-            const agentName =
-              currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI";
-            return `${agentName}: ${m.text}`;
-          })
-          .join("\n");
+        } else {
+          // Subsequent agents can reference previous feedback
+          const recentFeedback = currentMessages
+            .slice(-i)
+            .filter((m) => m.sender === "ai")
+            .map((m) => {
+              const agentName =
+                currentAgents.find((a) => a.id === m.agentId)?.name ?? "AI";
+              return `${agentName}: ${m.text}`;
+            })
+            .join("\n");
 
-        prompt = `The user has written: "${text}"
+          prompt = `The user has written: "${text}"
 
 OTHER AGENTS HAVE ALREADY PROVIDED FEEDBACK:
 ${recentFeedback}
@@ -531,36 +546,44 @@ ${recentFeedback}
 As "${agent.name}", provide your own brief, constructive feedback. You can build on what others have said, offer a different angle, or add complementary suggestions. Keep it concise and helpful.
 
 IMPORTANT: Respond directly with your feedback content only. Do not include your name or a colon at the beginning of your response. Limit your response to 50 words or less.`;
+        }
+
+        const aiResponseText = await callAgentForResponse(agent, prompt);
+
+        // Clean up response text - remove leading colons or agent names
+        const cleanedResponse = aiResponseText
+          .replace(/^[^:]*:\s*/, "") // Remove "AgentName: " pattern at start
+          .replace(/^:\s*/, "") // Remove standalone colon at start
+          .trim();
+
+        const messageId = getUniqueMessageId();
+        const newMessage = {
+          id: messageId,
+          sender: "ai" as const,
+          text: cleanedResponse,
+          agentId: agent.id,
+          timestamp: new Date().toISOString(),
+        };
+
+        setMessages((prev) => [...prev, newMessage]);
+        currentMessages = [...currentMessages, newMessage];
+
+        setTypingMessageIds((prev) => [...prev, messageId]);
+        setTimeout(() => {
+          setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
+        }, 1000);
+
+        await new Promise((res) => setTimeout(res, 400));
       }
-
-      const aiResponseText = await callAgentForResponse(agent, prompt);
-
-      // Clean up response text - remove leading colons or agent names
-      const cleanedResponse = aiResponseText
-        .replace(/^[^:]*:\s*/, "") // Remove "AgentName: " pattern at start
-        .replace(/^:\s*/, "") // Remove standalone colon at start
-        .trim();
-
-      const messageId = getUniqueMessageId();
-      const newMessage = {
-        id: messageId,
-        sender: "ai" as const,
-        text: cleanedResponse,
-        agentId: agent.id,
-        timestamp: new Date().toISOString(),
-      };
-
-      setMessages((prev) => [...prev, newMessage]);
-      currentMessages = [...currentMessages, newMessage];
-
-      setTypingMessageIds((prev) => [...prev, messageId]);
-      setTimeout(() => {
-        setTypingMessageIds((prev) => prev.filter((id) => id !== messageId));
-      }, 1000);
-
-      await new Promise((res) => setTimeout(res, 400));
-    }
-  };
+    },
+    [
+      feedbackSessionId,
+      currentAgents,
+      getUniqueMessageId,
+      callAgentForResponse,
+      messages,
+    ],
+  );
 
   const triggerStarterFeedback = useCallback(async () => {
     if (roundEndedRef.current) return;
@@ -667,23 +690,24 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
     triggerStarterFeedback,
   ]);
 
-  const handleFinalAnswerChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    const newText = e.target.value;
-    setFinalAnswer(newText);
-    setLastWritingTime(Date.now());
+  const handleFinalAnswerChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const newText = e.target.value;
+      setFinalAnswer(newText);
+      setLastWritingTime(Date.now());
 
-    const currentWordCount = getWordCount(newText);
-    // Only trigger automatic feedback if there's actual content and it meets the threshold
-    if (
-      currentWordCount >= lastFeedbackWordCount + WORD_COUNT_THRESHOLD &&
-      newText.trim().length > 0
-    ) {
-      setLastFeedbackWordCount(currentWordCount);
-      triggerAutomaticFeedback(newText);
-    }
-  };
+      const currentWordCount = getWordCount(newText);
+      // Only trigger automatic feedback if there's actual content and it meets the threshold
+      if (
+        currentWordCount >= lastFeedbackWordCount + WORD_COUNT_THRESHOLD &&
+        newText.trim().length > 0
+      ) {
+        setLastFeedbackWordCount(currentWordCount);
+        triggerAutomaticFeedback(newText);
+      }
+    },
+    [lastFeedbackWordCount, triggerAutomaticFeedback],
+  );
 
   useEffect(() => {
     if (timeLeft === 180 && !finalAnswer.trim()) {

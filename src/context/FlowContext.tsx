@@ -11,6 +11,8 @@ interface EssayData {
   essay: string;
   chatLog?: Message[];
   timeSpent: number;
+  assignedAgentId?: string;
+  assignedAgentName?: string;
 }
 
 interface SurveyAnswers {
@@ -18,6 +20,7 @@ interface SurveyAnswers {
   inputHelpfulness: string;
   ideaPrompting: string;
   overwhelmed: string;
+  writingPromptsCount?: string | number;
 }
 
 interface FlowContextType {
@@ -61,7 +64,7 @@ export function FlowProvider({ children }: { children: ReactNode }) {
 
   // State for survey answers
   const [surveyAnswers, setSurveyAnswers] = useState<SurveyAnswers | null>(
-    null
+    null,
   );
 
   // State for MTurk data

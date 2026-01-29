@@ -13,15 +13,11 @@ type SurveyAnswers = {
   gender: string;
   genderOther: string;
   isEnglishFirstLanguage: string;
+  writingPromptsCount: string;
 };
 
 export default function CompletedPage() {
-  const {
-    saveSurveyData,
-    soloEssays,
-    singleEssays,
-    groupEssays,
-  } = useFlow();
+  const { saveSurveyData, soloEssays, singleEssays, groupEssays } = useFlow();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
@@ -35,6 +31,7 @@ export default function CompletedPage() {
     gender: "",
     genderOther: "",
     isEnglishFirstLanguage: "",
+    writingPromptsCount: "",
   });
 
   // Log all saved data when component mounts
@@ -49,14 +46,15 @@ export default function CompletedPage() {
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLSelectElement | HTMLTextAreaElement | HTMLInputElement
-    >
+    >,
   ): void => {
     const { name, value } = e.target;
     setSurveyAnswers((prev) => ({
       ...prev,
       [name]: value,
     }));
-  };  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  };
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (isSubmitting) return;
@@ -73,30 +71,30 @@ export default function CompletedPage() {
 
       // First save survey data to flow context
       saveSurveyData(surveyAnswers);
-      
+
       // Prepare data for API submission
       const dataToSubmit = {
         soloEssays,
         singleEssays,
         groupEssays,
-        surveyAnswers
+        surveyAnswers,
       };
 
       // Submit data to API endpoint that handles Firebase writing
-      const response = await fetch('/api/submit-data', {
-        method: 'POST',
+      const response = await fetch("/api/submit-data", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(dataToSubmit),
       });
-      
+
       const result = await response.json();
-      
+
       if (!result.success) {
-        throw new Error(result.message || 'Error submitting data');
+        throw new Error(result.message || "Error submitting data");
       }
-      
+
       console.log("Document written with ID: ", result.documentId);
 
       setHasSubmitted(true);
@@ -125,7 +123,8 @@ export default function CompletedPage() {
               <div>
                 <label className="block mb-2">
                   After completing the task, how confident are you that you
-                  could produce high-quality piece of writing on similar assignments without assistance?
+                  could produce high-quality piece of writing on similar
+                  assignments without assistance?
                 </label>
                 <select
                   name="confidence"
@@ -224,6 +223,23 @@ export default function CompletedPage() {
                   rows={4}
                   className="w-full p-3 rounded border border-gray-500 bg-gray-800 text-white resize-none"
                   placeholder="Please share your thoughts..."
+                />
+              </div>
+
+              {/* Question 6 - Writing Prompts Count */}
+              <div>
+                <label className="block mb-2">
+                  How many writing prompts were you given?
+                </label>
+                <input
+                  type="number"
+                  name="writingPromptsCount"
+                  value={surveyAnswers.writingPromptsCount}
+                  onChange={handleInputChange}
+                  required
+                  min="0"
+                  className="w-full p-3 rounded border border-gray-500 bg-gray-800 text-white"
+                  placeholder="Enter the number of prompts"
                 />
               </div>
 
