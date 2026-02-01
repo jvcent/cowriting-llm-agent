@@ -229,7 +229,7 @@ export default function CompletedPage() {
               {/* Question 6 - Writing Prompts Count */}
               <div>
                 <label className="block mb-2">
-                  How many writing prompts were you given?
+                  How many essays were you asked to write?
                 </label>
                 <input
                   type="number"
