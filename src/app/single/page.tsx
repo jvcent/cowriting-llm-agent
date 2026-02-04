@@ -19,31 +19,79 @@ interface Agent {
   systemPrompt: string;
 }
 
-// Default Claude agent
-const CLAUDE_AGENT: Agent = {
+// CREATIVE WRITING AGENTS
+const CLAUDE_AGENT_CREATIVE: Agent = {
   id: "claude",
   name: "Claude",
-  avatar: "/claude_avatar.png", // adjust path as needed
+  avatar: "/claude_avatar.png",
   systemPrompt: `
-    You are Claude, a helpful AI writing assistant. 
-    Your job is to support the user in completing their writing task. 
-    Provide clear, concise guidance (≤ 50 words). 
-    Always address them as "you". 
-    Focus only on the writing prompt provided: "{{PROMPT}}"
+    You are Claude, a helpful AI writing assistant for creative writing. 
+    Your role is to help maximize these dimensions:
+    - Originality: Unique ideas, fresh perspectives, and creative approaches
+    - Narrative structure & coherence: Clear plot flow and story consistency
+    - Elaboration and richness: Vivid details and descriptive language
+    - Expressiveness and emotional impact: Evocative writing that resonates
+    - Literary quality and language use: Sophisticated vocabulary and prose style
+    
+    Provide clear, concise guidance (≤ 50 words) focused on the prompt: "{{PROMPT}}"
+    Always address the user as "you".
   `,
 };
 
-// GPT agent (same as in GroupPage)
-const CHATGPT_AGENT: Agent = {
+const CHATGPT_AGENT_CREATIVE: Agent = {
   id: "chatgpt",
   name: "ChatGPT",
   avatar: "/gpt_avatar.png",
   systemPrompt: `
-    You are ChatGPT, powered by GPT-5.2, a helpful AI writing assistant. 
-    Your job is to support the user in completing their writing task. 
-    Provide clear, concise guidance (≤ 50 words). 
-    Always address them as "you". 
-    Focus only on the writing prompt provided: "{{PROMPT}}"
+    You are ChatGPT, powered by GPT-5.2, a helpful AI writing assistant for creative writing. 
+    Your role is to help maximize these dimensions:
+    - Originality: Unique ideas, fresh perspectives, and creative approaches
+    - Narrative structure & coherence: Clear plot flow and story consistency
+    - Elaboration and richness: Vivid details and descriptive language
+    - Expressiveness and emotional impact: Evocative writing that resonates
+    - Literary quality and language use: Sophisticated vocabulary and prose style
+    
+    Provide clear, concise guidance (≤ 50 words) focused on the prompt: "{{PROMPT}}"
+    Always address the user as "you".
+  `,
+};
+
+// ARGUMENTATIVE WRITING AGENTS
+const CLAUDE_AGENT_ARGUMENTATIVE: Agent = {
+  id: "claude",
+  name: "Claude",
+  avatar: "/claude_avatar.png",
+  systemPrompt: `
+    You are Claude, a helpful AI writing assistant for argumentative writing. 
+    Your role is to help maximize these dimensions:
+    - Argument clarity: Clear thesis and well-defined positions
+    - Strength of evidence and reasoning: Robust support for claims
+    - Logical structure and organization: Coherent argument progression
+    - Integration of counterarguments: Acknowledging and addressing opposing views
+    - Persuasiveness: Compelling and convincing rhetoric
+    - Language and formality: Appropriate academic or formal tone
+    
+    Provide clear, concise guidance (≤ 50 words) focused on the prompt: "{{PROMPT}}"
+    Always address the user as "you".
+  `,
+};
+
+const CHATGPT_AGENT_ARGUMENTATIVE: Agent = {
+  id: "chatgpt",
+  name: "ChatGPT",
+  avatar: "/gpt_avatar.png",
+  systemPrompt: `
+    You are ChatGPT, powered by GPT-5.2, a helpful AI writing assistant for argumentative writing. 
+    Your role is to help maximize these dimensions:
+    - Argument clarity: Clear thesis and well-defined positions
+    - Strength of evidence and reasoning: Robust support for claims
+    - Logical structure and organization: Coherent argument progression
+    - Integration of counterarguments: Acknowledging and addressing opposing views
+    - Persuasiveness: Compelling and convincing rhetoric
+    - Language and formality: Appropriate academic or formal tone
+    
+    Provide clear, concise guidance (≤ 50 words) focused on the prompt: "{{PROMPT}}"
+    Always address the user as "you".
   `,
 };
 
@@ -68,16 +116,21 @@ export default function SinglePage() {
   const [currentModel] = useState(AI_MODELS.CLAUDE_OPUS_4_5.id);
   const [, setLastUserActivityTime] = useState(Date.now());
 
-  const timerDuration = 300;
+  const timerDuration = 420; // 7 minutes in seconds
   const [loadedQuestions, setLoadedQuestions] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerDuration);
+  const [canAdvanceQuestion, setCanAdvanceQuestion] = useState(false); // at 4 mins
+  const [showTimeWarning, setShowTimeWarning] = useState(false); // at 5 mins
 
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
-  const [currentAgents, setCurrentAgents] = useState<Agent[]>([CLAUDE_AGENT]);
+  const [currentAgents, setCurrentAgents] = useState<Agent[]>([
+    CLAUDE_AGENT_CREATIVE,
+  ]);
   const [assignedAgentId, setAssignedAgentId] = useState<string | null>(null);
   const [assignedAgentName, setAssignedAgentName] = useState<string | null>(
     null,
   );
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [currentQuestionType, setCurrentQuestionType] = useState<
     "creative" | "argumentative"
   >("creative");
@@ -88,6 +141,7 @@ export default function SinglePage() {
   const startTimeRef = useRef<number>(Date.now());
   const [hasGivenStarterFeedback, setHasGivenStarterFeedback] = useState(false);
   const [lastFeedbackWordCount, setLastFeedbackWordCount] = useState(0);
+  const [hasGiven20WordFeedback, setHasGiven20WordFeedback] = useState(false);
 
   const [, setScratchboardContent] = useState("");
   const [, setFeedbackSessionId] = useState(0);
@@ -194,12 +248,81 @@ export default function SinglePage() {
   const triggerStarterFeedback = useCallback(async () => {
     if (roundEndedRef.current || hasGivenStarterFeedback) return;
     setHasGivenStarterFeedback(true);
-    const agent = currentAgents[0] || CLAUDE_AGENT;
+    const defaultAgent =
+      currentQuestionType === "creative"
+        ? CLAUDE_AGENT_CREATIVE
+        : CLAUDE_AGENT_ARGUMENTATIVE;
+    const agent = currentAgents[0] || defaultAgent;
     await postStaticMessageSequentially(
       agent,
       "I notice you've been writing for a while. Would you like some feedback on your progress so far?",
     );
   }, [hasGivenStarterFeedback, postStaticMessageSequentially, currentAgents]);
+
+  // Trigger brainstorming help if user hasn't written enough after 60 seconds
+  const triggerBrainstormingHelp = useCallback(async () => {
+    if (roundEndedRef.current || hasGivenStarterFeedback) return;
+    setHasGivenStarterFeedback(true);
+    const defaultAgent =
+      currentQuestionType === "creative"
+        ? CLAUDE_AGENT_CREATIVE
+        : CLAUDE_AGENT_ARGUMENTATIVE;
+    const agent = currentAgents[0] || defaultAgent;
+
+    const msgId = getUniqueMessageId();
+    setMessages((p) => [
+      ...p,
+      {
+        id: msgId,
+        sender: "ai",
+        text: "...",
+        agentId: agent.id,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+
+    try {
+      const resp = await aiService.generateResponse(
+        [
+          {
+            id: nextMessageIdRef.current,
+            sender: "user",
+            text: `I'm struggling to get started with this writing prompt. Can you help me brainstorm some ideas or angles to approach it? Here's the prompt: "${currentQuestion}"`,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        {
+          systemPrompt: agent.systemPrompt.replace(
+            "{{PROMPT}}",
+            currentQuestion || "",
+          ),
+          model: currentModel,
+        },
+      );
+
+      setMessages((p) =>
+        p.map((m) =>
+          m.id === msgId
+            ? { ...m, text: resp, timestamp: new Date().toISOString() }
+            : m,
+        ),
+      );
+
+      setTypingMessageIds((prev) => [...prev, msgId]);
+      setTimeout(() => {
+        setTypingMessageIds((prev) => prev.filter((id) => id !== msgId));
+      }, 3000);
+    } catch (err) {
+      console.error(err);
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    }
+  }, [
+    hasGivenStarterFeedback,
+    currentAgents,
+    currentQuestion,
+    currentModel,
+    getUniqueMessageId,
+  ]);
 
   // -----------------------------
   // EFFECTS
@@ -226,7 +349,7 @@ export default function SinglePage() {
         ? "creative"
         : (questionSequence as "creative" | "argumentative"),
     );
-    setCurrentAgents([CLAUDE_AGENT]);
+    setCurrentAgents([CLAUDE_AGENT_CREATIVE]);
     setCurrentQuestion(rk);
     setLoadedQuestions(true);
   }, [questionSequence]);
@@ -240,7 +363,11 @@ export default function SinglePage() {
   // -----------------------------
   const generateAIResponse = async (userMessage: string) => {
     if (roundEndedRef.current) return;
-    const agent = currentAgents[0] || CLAUDE_AGENT;
+    const defaultAgent =
+      currentQuestionType === "creative"
+        ? CLAUDE_AGENT_CREATIVE
+        : CLAUDE_AGENT_ARGUMENTATIVE;
+    const agent = currentAgents[0] || defaultAgent;
     setBotThinking(true);
 
     const tempId = getUniqueMessageId();
@@ -330,6 +457,7 @@ export default function SinglePage() {
       startTimeRef.current = Date.now();
       setLastUserActivityTime(Date.now());
       setHasGivenStarterFeedback(false);
+      setHasGiven20WordFeedback(false);
       setFeedbackSessionId((p) => p + 1);
       setMessages([]);
       setCompletedMessageIds([]);
@@ -352,33 +480,114 @@ export default function SinglePage() {
         const rk = topics[Math.floor(Math.random() * topics.length)];
         setCurrentQuestion(rk);
 
-        // Randomly select between Claude and ChatGPT
-        const selectedAgent =
-          Math.random() > 0.5 ? CLAUDE_AGENT : CHATGPT_AGENT;
+        // Use the pre-selected agent (randomized only once at start)
+        const baseAgent = selectedAgent || CLAUDE_AGENT_CREATIVE;
+
+        // Select appropriate version based on essay type
+        let agentToUse: Agent;
+        if (chosen === "creative") {
+          agentToUse =
+            baseAgent.id === "chatgpt"
+              ? CHATGPT_AGENT_CREATIVE
+              : CLAUDE_AGENT_CREATIVE;
+        } else {
+          agentToUse =
+            baseAgent.id === "chatgpt"
+              ? CHATGPT_AGENT_ARGUMENTATIVE
+              : CLAUDE_AGENT_ARGUMENTATIVE;
+        }
+
         const agentWithPrompt = {
-          ...selectedAgent,
-          systemPrompt: selectedAgent.systemPrompt.replace("{{PROMPT}}", rk),
+          ...agentToUse,
+          systemPrompt: agentToUse.systemPrompt.replace("{{PROMPT}}", rk),
         };
         setCurrentAgents([agentWithPrompt]);
         // Explicitly store the assigned agent type
-        setAssignedAgentId(selectedAgent.id);
-        setAssignedAgentName(selectedAgent.name);
+        setAssignedAgentId(agentToUse.id);
+        setAssignedAgentName(agentToUse.name);
         setIsQuestioningEnabled(true);
       } catch (err) {
         console.error(err);
       }
     },
-    [currentQuestionType],
+    [currentQuestionType, selectedAgent],
   );
 
+  // Initialize selected agent once on first load
   useEffect(() => {
-    if (loadedQuestions) startNewRound();
-  }, [loadedQuestions, startNewRound]);
+    if (loadedQuestions && !selectedAgent) {
+      const agent =
+        Math.random() > 0.5 ? CLAUDE_AGENT_CREATIVE : CHATGPT_AGENT_CREATIVE;
+      setSelectedAgent(agent);
+    }
+  }, [loadedQuestions, selectedAgent]);
+
+  // Check for brainstorming trigger (60 seconds with <20 words)
+  useEffect(() => {
+    if (roundEndedRef.current || hasGivenStarterFeedback || !loadedQuestions)
+      return;
+
+    const checkBrainstormingInterval = setInterval(() => {
+      const elapsedSeconds = (Date.now() - startTimeRef.current) / 1000;
+      const wc = getWordCount(finalAnswer);
+
+      // After 60 seconds, if still <20 words, trigger brainstorming
+      if (elapsedSeconds >= 60 && wc < 20) {
+        triggerBrainstormingHelp();
+      }
+    }, 1000);
+
+    return () => clearInterval(checkBrainstormingInterval);
+  }, [
+    loadedQuestions,
+    hasGivenStarterFeedback,
+    finalAnswer,
+    triggerBrainstormingHelp,
+  ]);
+
+  useEffect(() => {
+    if (loadedQuestions && selectedAgent) startNewRound();
+  }, [loadedQuestions, selectedAgent, startNewRound]);
+
+  // Next question / finish
+  const handleNextQuestion = useCallback(() => {
+    if (currentQuestion) {
+      const spent = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      addSingleEssay({
+        questionType: currentQuestionType,
+        question: currentQuestion,
+        essay: finalAnswer || "[No answer provided]",
+        chatLog: messages,
+        timeSpent: spent,
+        assignedAgentId: assignedAgentId || undefined,
+        assignedAgentName: assignedAgentName || undefined,
+      });
+    }
+
+    if (currentQuestionType === "creative") {
+      setCurrentQuestionType("argumentative");
+      startTimeRef.current = Date.now();
+      startNewRound("argumentative");
+    } else {
+      router.push("/completed");
+    }
+  }, [
+    currentQuestion,
+    currentQuestionType,
+    finalAnswer,
+    messages,
+    assignedAgentId,
+    assignedAgentName,
+    addSingleEssay,
+    startNewRound,
+    router,
+  ]);
 
   // Timer countdown
   useEffect(() => {
     if (timeLeft <= 0) {
-      if (isQuestioningEnabled) autoSubmitTimeoutAnswer();
+      // Auto-submit at 7 mins (420 seconds)
+      handleNextQuestion();
       return;
     }
     if (roundEndedRef.current) return;
@@ -387,18 +596,25 @@ export default function SinglePage() {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
     return () => clearTimeout(t);
-  }, [timeLeft, isQuestioningEnabled, autoSubmitTimeoutAnswer]);
+  }, [timeLeft, handleNextQuestion]);
 
-  // Starter feedback on idle
+  // Enable "Next Question" button at 4 mins (240 seconds remaining)
   useEffect(() => {
-    if (lastFeedbackWordCount > 0 && !hasGivenStarterFeedback) {
-      triggerStarterFeedback();
+    if (timeLeft <= 240) {
+      setCanAdvanceQuestion(true);
     }
-  }, [lastFeedbackWordCount, hasGivenStarterFeedback, triggerStarterFeedback]);
+  }, [timeLeft]);
+
+  // Show warning at 5 mins (300 seconds remaining)
+  useEffect(() => {
+    if (timeLeft === 300) {
+      setShowTimeWarning(true);
+    }
+  }, [timeLeft]);
 
   // Warning at 2 minutes left
   useEffect(() => {
-    if (timeLeft === 180 && !finalAnswer.trim()) {
+    if (timeLeft === 120 && !finalAnswer.trim()) {
       setShowWarning(true);
     }
   }, [timeLeft, finalAnswer]);
@@ -407,7 +623,11 @@ export default function SinglePage() {
   const triggerAutomaticFeedback = useCallback(
     async (text: string) => {
       if (roundEndedRef.current) return;
-      const agent = currentAgents[0] || CLAUDE_AGENT;
+      const defaultAgent =
+        currentQuestionType === "creative"
+          ? CLAUDE_AGENT_CREATIVE
+          : CLAUDE_AGENT_ARGUMENTATIVE;
+      const agent = currentAgents[0] || defaultAgent;
 
       const msgId = getUniqueMessageId();
       setMessages((p) => [
@@ -461,37 +681,15 @@ export default function SinglePage() {
       const txt = e.target.value;
       setFinalAnswer(txt);
       const wc = getWordCount(txt);
-      if (wc >= lastFeedbackWordCount + 35) {
-        setLastFeedbackWordCount(wc);
+
+      // Trigger feedback when user reaches >20 words (only once)
+      if (wc > 20 && !hasGiven20WordFeedback) {
+        setHasGiven20WordFeedback(true);
         triggerAutomaticFeedback(txt);
       }
     },
-    [lastFeedbackWordCount, triggerAutomaticFeedback],
+    [hasGiven20WordFeedback, triggerAutomaticFeedback],
   );
-
-  // Next question / finish
-  const handleNextQuestion = () => {
-    if (currentQuestion) {
-      const spent = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      addSingleEssay({
-        questionType: currentQuestionType,
-        question: currentQuestion,
-        essay: finalAnswer || "[No answer provided]",
-        chatLog: messages,
-        timeSpent: spent,
-        assignedAgentId: assignedAgentId || undefined,
-        assignedAgentName: assignedAgentName || undefined,
-      });
-    }
-
-    if (currentQuestionType === "creative") {
-      setCurrentQuestionType("argumentative");
-      startTimeRef.current = Date.now();
-      startNewRound("argumentative");
-    } else {
-      router.push("/completed");
-    }
-  };
 
   // RENDER
   return (
@@ -518,30 +716,18 @@ export default function SinglePage() {
       <div className="w-1/2 pr-2 flex flex-col h-full overflow-hidden">
         {currentQuestion && (
           <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
-            <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl text-white font-semibold">
-                Writing Prompt:
-              </h2>
-              <div
-                className={`p-2 rounded-lg ${
-                  timeLeft > 20
-                    ? "bg-green-700"
-                    : timeLeft > 10
-                      ? "bg-yellow-600 animate-pulse"
-                      : "bg-red-700 animate-pulse"
-                } ml-4`}
-              >
-                <div className="text-xl font-mono text-white">
-                  {formatTime(timeLeft)}
-                </div>
-                {timeLeft <= 20 && (
-                  <div className="text-xs text-white text-center">
-                    {timeLeft <= 10 ? "Time almost up!" : "Finish soon!"}
-                  </div>
-                )}
-              </div>
-            </div>
+            <h2 className="text-xl text-white font-semibold mb-2">
+              Writing Prompt:
+            </h2>
             <p className="text-white text-lg">{currentQuestion}</p>
+          </div>
+        )}
+        {/* Time warning message */}
+        {showTimeWarning && (
+          <div className="bg-yellow-600 bg-opacity-80 p-3 rounded-md mb-4 border-2 border-yellow-400">
+            <p className="text-white text-center font-semibold">
+              ⏱️ You have 2 more minutes remaining
+            </p>
           </div>
         )}
         <div className="flex flex-col bg-white bg-opacity-15 rounded-md p-4 mb-4 h-full border-2 border-blue-400 shadow-lg">
@@ -562,14 +748,14 @@ export default function SinglePage() {
         <div className="flex-1 bg-white bg-opacity-10 rounded-md flex flex-col overflow-hidden">
           <div className="bg-black bg-opacity-30 p-2 flex space-x-3 items-center">
             <Image
-              src={currentAgents[0]?.avatar || CLAUDE_AGENT.avatar}
-              alt={currentAgents[0]?.name || CLAUDE_AGENT.name}
+              src={currentAgents[0]?.avatar || CLAUDE_AGENT_CREATIVE.avatar}
+              alt={currentAgents[0]?.name || CLAUDE_AGENT_CREATIVE.name}
               width={40}
               height={40}
               className="rounded-full"
             />
             <span className="ml-2 text-white font-medium">
-              {currentAgents[0]?.name || CLAUDE_AGENT.name}
+              {currentAgents[0]?.name || CLAUDE_AGENT_CREATIVE.name}
             </span>
           </div>
           <div
@@ -587,8 +773,10 @@ export default function SinglePage() {
                 {msg.sender === "ai" && (
                   <div className="mr-2 flex-shrink-0">
                     <Image
-                      src={currentAgents[0]?.avatar || CLAUDE_AGENT.avatar}
-                      alt={currentAgents[0]?.name || CLAUDE_AGENT.name}
+                      src={
+                        currentAgents[0]?.avatar || CLAUDE_AGENT_CREATIVE.avatar
+                      }
+                      alt={currentAgents[0]?.name || CLAUDE_AGENT_CREATIVE.name}
                       width={40}
                       height={40}
                       className="rounded-full border-2 border-white"
@@ -606,7 +794,7 @@ export default function SinglePage() {
                 >
                   {msg.sender === "ai" && (
                     <div className="text-sm text-gray-300 mb-1 font-bold">
-                      {currentAgents[0]?.name || CLAUDE_AGENT.name}
+                      {currentAgents[0]?.name || CLAUDE_AGENT_CREATIVE.name}
                     </div>
                   )}
                   {msg.sender === "system" && (
@@ -669,6 +857,16 @@ export default function SinglePage() {
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md"
               >
                 Next Question
+              </button>
+            </div>
+          )}
+          {isQuestioningEnabled && canAdvanceQuestion && timeLeft > 0 && (
+            <div className="p-3 bg-black bg-opacity-30 flex justify-center">
+              <button
+                onClick={handleNextQuestion}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md"
+              >
+                Proceed to Next Question
               </button>
             </div>
           )}

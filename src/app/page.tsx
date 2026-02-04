@@ -95,11 +95,11 @@ export default function Terms() {
   if (selectedRoute) {
     const introText = {
       "/single":
-        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing.\n\nAs you work on your responses, an AI agent will appear in the chat window on the right to provide feedback and offer suggestions to support your writing process. You are welcome to incorporate any of its suggestions or ideas as you see fit. Do your best to write at least 2 paragraphs.",
+        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing.\n\nAs you work on your responses, an AI agent will appear in the chat window on the right to provide feedback and offer suggestions to support your writing process. You are welcome to incorporate any of its suggestions or ideas as you see fit. Aim to work on the essays for about 5 minutes.",
       "/group":
-        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing.\n\nAs you work on your responses, AI agents will appear in the chat window on the right to provide feedback, offer suggestions, and engage in discussion to support your writing process. You are welcome to incorporate any of their suggestions or ideas as you see fit. Do your best to write at least 2 paragraphs.",
+        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing.\n\nAs you work on your responses, AI agents will appear in the chat window on the right to provide feedback, offer suggestions, and engage in discussion to support your writing process. You are welcome to incorporate any of their suggestions or ideas as you see fit. Aim to work on the essays for about 5 minutes.",
       "/solo":
-        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing.\n\nYou must refrain from using any external tools or aid during your writing tasks. Do your best to write at least 2 paragraphs.",
+        "In this experiment, you will complete two writing tasks: one focused on creative writing and the other on argumentative writing.\n\nYou must refrain from using any external tools or aid during your writing tasks. Aim to work on the essays for about 5 minutes.",
     };
 
     return (

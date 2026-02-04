@@ -31,33 +31,84 @@ interface Agent {
 // ----------------------------------------------------------------
 const MAX_AGENTS_PER_ROUND = 2; // change this if you ever need more agents
 
-// Default agents
-const CLAUDE_AGENT: Agent = {
+// CREATIVE WRITING AGENTS
+const CLAUDE_AGENT_CREATIVE: Agent = {
   id: "claude",
   name: "Claude",
   avatar: "/claude_avatar.png",
   systemPrompt: `
-    You are Claude, a helpful AI writing assistant. 
-    Your job is to support the user in completing their writing task. 
-    Provide clear, concise guidance (≤ 50 words). 
-    Always address them as "you". 
-    Focus only on the writing prompt provided: "{{PROMPT}}"
+    You are Claude, a helpful AI writing assistant for creative writing. 
+    Your role is to help maximize these dimensions:
+    - Originality: Unique ideas, fresh perspectives, and creative approaches
+    - Narrative structure & coherence: Clear plot flow and story consistency
+    - Elaboration and richness: Vivid details and descriptive language
+    - Expressiveness and emotional impact: Evocative writing that resonates
+    - Literary quality and language use: Sophisticated vocabulary and prose style
+    
+    Provide clear, concise guidance (≤ 50 words) focused on the prompt: "{{PROMPT}}"
+    Always address the user as "you".
   `,
-  introMessage: "I'm Claude, here to help with your writing.",
+  introMessage: "I'm Claude, here to help craft compelling creative writing.",
 };
 
-const CHATGPT_AGENT: Agent = {
+const CHATGPT_AGENT_CREATIVE: Agent = {
   id: "chatgpt",
   name: "ChatGPT",
   avatar: "/gpt_avatar.png",
   systemPrompt: `
-    You are ChatGPT, powered by GPT-5.2, a helpful AI writing assistant. 
-    Your job is to support the user in completing their writing task. 
-    Provide clear, concise guidance (≤ 50 words). 
-    Always address them as "you". 
-    Focus only on the writing prompt provided: "{{PROMPT}}"
+    You are ChatGPT, powered by GPT-5.2, a helpful AI writing assistant for creative writing. 
+    Your role is to help maximize these dimensions:
+    - Originality: Unique ideas, fresh perspectives, and creative approaches
+    - Narrative structure & coherence: Clear plot flow and story consistency
+    - Elaboration and richness: Vivid details and descriptive language
+    - Expressiveness and emotional impact: Evocative writing that resonates
+    - Literary quality and language use: Sophisticated vocabulary and prose style
+    
+    Provide clear, concise guidance (≤ 50 words) focused on the prompt: "{{PROMPT}}"
+    Always address the user as "you".
   `,
-  introMessage: "I'm ChatGPT (GPT-5.2), ready to assist with your writing.",
+  introMessage: "I'm ChatGPT (GPT-5.2), here to enhance your creative writing.",
+};
+
+// ARGUMENTATIVE WRITING AGENTS
+const CLAUDE_AGENT_ARGUMENTATIVE: Agent = {
+  id: "claude",
+  name: "Claude",
+  avatar: "/claude_avatar.png",
+  systemPrompt: `
+    You are Claude, a helpful AI writing assistant for argumentative writing. 
+    Your role is to help maximize these dimensions:
+    - Argument clarity: Clear thesis and well-defined positions
+    - Strength of evidence and reasoning: Robust support for claims
+    - Logical structure and organization: Coherent argument progression
+    - Integration of counterarguments: Acknowledging and addressing opposing views
+    - Persuasiveness: Compelling and convincing rhetoric
+    - Language and formality: Appropriate academic or formal tone
+    
+    Provide clear, concise guidance (≤ 50 words) focused on the prompt: "{{PROMPT}}"
+    Always address the user as "you".
+  `,
+  introMessage: "I'm Claude, here to strengthen your argumentative writing.",
+};
+
+const CHATGPT_AGENT_ARGUMENTATIVE: Agent = {
+  id: "chatgpt",
+  name: "ChatGPT",
+  avatar: "/gpt_avatar.png",
+  systemPrompt: `
+    You are ChatGPT, powered by GPT-5.2, a helpful AI writing assistant for argumentative writing. 
+    Your role is to help maximize these dimensions:
+    - Argument clarity: Clear thesis and well-defined positions
+    - Strength of evidence and reasoning: Robust support for claims
+    - Logical structure and organization: Coherent argument progression
+    - Integration of counterarguments: Acknowledging and addressing opposing views
+    - Persuasiveness: Compelling and convincing rhetoric
+    - Language and formality: Appropriate academic or formal tone
+    
+    Provide clear, concise guidance (≤ 50 words) focused on the prompt: "{{PROMPT}}"
+    Always address the user as "you".
+  `,
+  introMessage: "I'm ChatGPT (GPT-5.2), ready to refine your arguments.",
 };
 
 // ----------------------------------------------------------------
@@ -114,8 +165,10 @@ export default function GroupPage() {
   const [evaluationComplete, setEvaluationComplete] = useState(false);
 
   // Timer states
-  const timerDuration = 300;
+  const timerDuration = 420; // 7 minutes in seconds
   const [timeLeft, setTimeLeft] = useState(timerDuration);
+  const [canAdvanceQuestion, setCanAdvanceQuestion] = useState(false); // at 4 mins
+  const [showTimeWarning, setShowTimeWarning] = useState(false); // at 5 mins
   const roundEndedRef = useRef(false);
 
   // Model & concurrency session
@@ -134,14 +187,23 @@ export default function GroupPage() {
   // Add start time tracking
   const startTimeRef = useRef(Date.now());
 
+  // Add ref to track finalAnswer without causing effect re-runs
+  const finalAnswerRef = useRef(finalAnswer);
+
   // Add word count tracking
   const [lastFeedbackWordCount, setLastFeedbackWordCount] = useState(0);
-  const WORD_COUNT_THRESHOLD = 35;
+  const WORD_COUNT_THRESHOLD = 20; // Reduced from 35 to trigger at 20+ words
 
   // Add idle time tracking
   const [lastWritingTime, setLastWritingTime] = useState<number>(Date.now());
   const [hasGivenStarterFeedback, setHasGivenStarterFeedback] = useState(false);
-  const IDLE_THRESHOLD = 60000; // 1 minute in milliseconds
+  const [hasGiven20WordFeedback, setHasGiven20WordFeedback] = useState(false);
+  const IDLE_THRESHOLD = 60000; // 60 seconds in milliseconds
+
+  // Sync finalAnswerRef whenever finalAnswer state changes
+  useEffect(() => {
+    finalAnswerRef.current = finalAnswer;
+  }, [finalAnswer]);
 
   // ----------------------------------------------------------------
   // Utility Functions
@@ -196,6 +258,39 @@ export default function GroupPage() {
   };
 
   // ----------------------------------------------------------------
+  // Question / Round Setup & Next Question Handler (defined early for useEffect)
+  // ----------------------------------------------------------------
+
+  // Move to next question or to "break" route
+  const handleNextQuestion = useCallback(() => {
+    // Save current essay data before moving to next
+    if (currentQuestion) {
+      const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      addGroupEssay({
+        questionType: currentQuestionSet,
+        question: currentQuestion,
+        essay: finalAnswer || "[No answer provided]",
+        chatLog: messages,
+        timeSpent,
+      });
+    }
+
+    if (currentQuestionSet === "creative") {
+      setCurrentQuestionSet("argumentative");
+      startTimeRef.current = Date.now(); // Reset start time
+      // Will call startNewRound in useEffect after state updates
+    } else {
+      router.push("/completed");
+    }
+  }, [
+    currentQuestion,
+    currentQuestionSet,
+    finalAnswer,
+    messages,
+    addGroupEssay,
+  ]);
+
+  // ----------------------------------------------------------------
   // Timer
   // ----------------------------------------------------------------
   // If time runs out before user is done
@@ -203,14 +298,12 @@ export default function GroupPage() {
     roundEndedRef.current = true;
     setIsQuestioningEnabled(false);
     setEvaluationComplete(true);
-    // Don't add the answer to chat or clear it - it will be saved when user clicks Next Question
   }, []);
 
   useEffect(() => {
     if (timeLeft <= 0) {
-      if (isQuestioningEnabled) {
-        autoSubmitTimeoutAnswer();
-      }
+      // Auto-submit at 7 mins (420 seconds)
+      handleNextQuestion();
       return;
     }
     if (roundEndedRef.current) return;
@@ -219,7 +312,28 @@ export default function GroupPage() {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
     return () => clearTimeout(t);
-  }, [timeLeft, isQuestioningEnabled, autoSubmitTimeoutAnswer]);
+  }, [timeLeft, handleNextQuestion]);
+
+  // Enable "Next Question" button at 4 mins (240 seconds remaining)
+  useEffect(() => {
+    if (timeLeft <= 240) {
+      setCanAdvanceQuestion(true);
+    }
+  }, [timeLeft]);
+
+  // Show warning at 5 mins (300 seconds remaining)
+  useEffect(() => {
+    if (timeLeft === 300) {
+      setShowTimeWarning(true);
+    }
+  }, [timeLeft]);
+
+  // Warning at 2 minutes left
+  useEffect(() => {
+    if (timeLeft === 120 && !finalAnswer.trim()) {
+      setShowWarning(true);
+    }
+  }, [timeLeft, finalAnswer]);
 
   // ----------------------------------------------------------------
   // Question / Round Setup
@@ -242,6 +356,7 @@ export default function GroupPage() {
       // Reset idle tracking
       setLastWritingTime(Date.now());
       setHasGivenStarterFeedback(false);
+      setHasGiven20WordFeedback(false);
 
       // Create a new session concurrency so partial responses won't overlap
       setFeedbackSessionId((prev) => prev + 1);
@@ -267,18 +382,27 @@ export default function GroupPage() {
       const topicKeys = Object.keys(topicsObj);
       const randomKey = topicKeys[Math.floor(Math.random() * topicKeys.length)];
 
-      // Use fixed Claude and ChatGPT agents
+      // Use appropriate agents based on essay type
+      const baseClaudeAgent =
+        chosenSet === "creative"
+          ? CLAUDE_AGENT_CREATIVE
+          : CLAUDE_AGENT_ARGUMENTATIVE;
+      const baseChatGPTAgent =
+        chosenSet === "creative"
+          ? CHATGPT_AGENT_CREATIVE
+          : CHATGPT_AGENT_ARGUMENTATIVE;
+
       const chosenAgents: Agent[] = [
         {
-          ...CLAUDE_AGENT,
-          systemPrompt: CLAUDE_AGENT.systemPrompt.replace(
+          ...baseClaudeAgent,
+          systemPrompt: baseClaudeAgent.systemPrompt.replace(
             "{{PROMPT}}",
             randomKey,
           ),
         },
         {
-          ...CHATGPT_AGENT,
-          systemPrompt: CHATGPT_AGENT.systemPrompt.replace(
+          ...baseChatGPTAgent,
+          systemPrompt: baseChatGPTAgent.systemPrompt.replace(
             "{{PROMPT}}",
             randomKey,
           ),
@@ -301,34 +425,22 @@ export default function GroupPage() {
     }
   }, [loadedQuestions, startNewRound, currentQuestion]);
 
-  // Move to next question or to "break" route
-  const handleNextQuestion = () => {
-    // Save current essay data before moving to next
-    if (currentQuestion) {
-      const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      addGroupEssay({
-        questionType: currentQuestionSet,
-        question: currentQuestion,
-        essay: finalAnswer || "[No answer provided]",
-        chatLog: messages,
-        timeSpent,
-      });
+  // Move to next question when currentQuestionSet changes
+  useEffect(() => {
+    if (currentQuestionSet === "argumentative" && currentQuestion) {
+      startNewRound("argumentative");
     }
-
-    if (currentQuestionSet === "creative") {
-      setCurrentQuestionSet("argumentative");
-      startTimeRef.current = Date.now(); // Reset start time
-      startNewRound("argumentative"); // This will handle everything including state updates
-    } else {
-      router.push("/completed");
-    }
-  };
+  }, [currentQuestionSet, startNewRound, currentQuestion]);
 
   // ----------------------------------------------------------------
   // Generate Bot Responses (One After Another)
   // ----------------------------------------------------------------
   const callAgentForResponse = useCallback(
-    async (agent: Agent, prompt: string): Promise<string> => {
+    async (
+      agent: Agent,
+      prompt: string,
+      isFollowUp: boolean = false,
+    ): Promise<string> => {
       try {
         // Select model based on agent
         let modelId = currentModel;
@@ -337,6 +449,11 @@ export default function GroupPage() {
         } else if (agent.id === "chatgpt") {
           modelId = AI_MODELS.GPT_5_2.id;
         }
+
+        // Dynamic system prompt based on whether this is a follow-up response
+        const systemPrompt = isFollowUp
+          ? `${agent.systemPrompt}\n\nIMPORTANT INSTRUCTIONS:\n1. Build naturally on what other agents have already said - reference their ideas and add complementary perspectives\n2. Create a cohesive discussion where ideas flow together naturally\n3. Always address the user directly using "you" instead of referring to them as "the user"\n4. Keep your responses concise and limited to 50 words or less`
+          : `${agent.systemPrompt}\n\nIMPORTANT INSTRUCTIONS:\n1. Always address the user directly using "you" instead of referring to them as "the user"\n2. Keep your responses concise and limited to 50 words or less`;
 
         const response = await aiService.generateResponse(
           [
@@ -347,7 +464,7 @@ export default function GroupPage() {
             },
           ],
           {
-            systemPrompt: `${agent.systemPrompt}\n\nIMPORTANT INSTRUCTIONS:\n1. Always address the user directly using "you" instead of referring to them as "the user"\n2. Keep your responses concise and limited to 50 words or less`,
+            systemPrompt: systemPrompt,
             model: modelId,
           },
         );
@@ -433,7 +550,7 @@ Make your response feel like part of a natural group discussion where ideas flow
 IMPORTANT: Respond directly with your message content only. Do not include your name or a colon at the beginning of your response.`;
         }
 
-        const aiResponseText = await callAgentForResponse(agent, prompt);
+        const aiResponseText = await callAgentForResponse(agent, prompt, i > 0);
         if (feedbackSessionId !== activeFeedback) break;
 
         // Clean up response text - remove leading colons or agent names
@@ -548,7 +665,7 @@ As "${agent.name}", provide your own brief, constructive feedback. You can build
 IMPORTANT: Respond directly with your feedback content only. Do not include your name or a colon at the beginning of your response. Limit your response to 50 words or less.`;
         }
 
-        const aiResponseText = await callAgentForResponse(agent, prompt);
+        const aiResponseText = await callAgentForResponse(agent, prompt, i > 0);
 
         // Clean up response text - remove leading colons or agent names
         const cleanedResponse = aiResponseText
@@ -629,7 +746,7 @@ As "${agent.name}", add your own encouraging suggestions for approaching this pr
 IMPORTANT: Respond directly with your suggestions content only. Do not include your name or a colon at the beginning of your response.`;
       }
 
-      const aiResponseText = await callAgentForResponse(agent, prompt);
+      const aiResponseText = await callAgentForResponse(agent, prompt, i > 0);
 
       // Clean up response text - remove leading colons or agent names
       const cleanedResponse = aiResponseText
@@ -669,26 +786,20 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
 
     const checkIdleInterval = setInterval(() => {
       const currentTime = Date.now();
-      const currentWordCount = getWordCount(finalAnswer);
+      const currentWordCount = getWordCount(finalAnswerRef.current);
 
-      // Only trigger starter feedback if user has written at least something (more than just whitespace)
+      // After 60 seconds with <20 words, trigger brainstorming
       if (
-        currentWordCount < WORD_COUNT_THRESHOLD &&
-        currentTime - lastWritingTime >= IDLE_THRESHOLD &&
-        finalAnswer.trim().length > 0 // Only trigger if user has written some content
+        currentTime - startTimeRef.current >= IDLE_THRESHOLD &&
+        currentWordCount < WORD_COUNT_THRESHOLD
       ) {
         triggerStarterFeedback();
         setHasGivenStarterFeedback(true);
       }
-    }, 5000);
+    }, 1000);
 
     return () => clearInterval(checkIdleInterval);
-  }, [
-    lastWritingTime,
-    finalAnswer,
-    hasGivenStarterFeedback,
-    triggerStarterFeedback,
-  ]);
+  }, [hasGivenStarterFeedback, triggerStarterFeedback]);
 
   const handleFinalAnswerChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -697,16 +808,17 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
       setLastWritingTime(Date.now());
 
       const currentWordCount = getWordCount(newText);
-      // Only trigger automatic feedback if there's actual content and it meets the threshold
+      // Trigger automatic feedback when user reaches >20 words (only once)
       if (
-        currentWordCount >= lastFeedbackWordCount + WORD_COUNT_THRESHOLD &&
+        currentWordCount > WORD_COUNT_THRESHOLD &&
+        !hasGiven20WordFeedback &&
         newText.trim().length > 0
       ) {
-        setLastFeedbackWordCount(currentWordCount);
+        setHasGiven20WordFeedback(true);
         triggerAutomaticFeedback(newText);
       }
     },
-    [lastFeedbackWordCount, triggerAutomaticFeedback],
+    [hasGiven20WordFeedback, triggerAutomaticFeedback],
   );
 
   useEffect(() => {
@@ -740,33 +852,21 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
       )}
       {/* Left Panel: Writing Prompt & User Text */}
       <div className="w-1/2 pr-2 flex flex-col h-full overflow-hidden">
-        {/* Writing Prompt with Timer */}
+        {/* Writing Prompt */}
         {currentQuestion && (
           <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
-            <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl text-white font-semibold">
-                Writing Prompt:
-              </h2>
-              <div
-                className={`p-2 rounded-lg ${
-                  timeLeft > 20
-                    ? "bg-green-700"
-                    : timeLeft > 10
-                      ? "bg-yellow-600 animate-pulse"
-                      : "bg-red-700 animate-pulse"
-                } ml-4`}
-              >
-                <div className="text-xl font-mono text-white">
-                  {formatTime(timeLeft)}
-                </div>
-                {timeLeft <= 20 && (
-                  <div className="text-xs text-white text-center">
-                    {timeLeft <= 10 ? "Time almost up!" : "Finish soon!"}
-                  </div>
-                )}
-              </div>
-            </div>
+            <h2 className="text-xl text-white font-semibold mb-2">
+              Writing Prompt:
+            </h2>
             <p className="text-white text-lg">{currentQuestion}</p>
+          </div>
+        )}
+        {/* Time warning message */}
+        {showTimeWarning && (
+          <div className="bg-yellow-600 bg-opacity-80 p-3 rounded-md mb-4 border-2 border-yellow-400">
+            <p className="text-white text-center font-semibold">
+              ⏱️ You have 2 more minutes remaining
+            </p>
           </div>
         )}
 
@@ -914,7 +1014,7 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
             </div>
           )}
 
-          {/* Next Question Button */}
+          {/* Next Question Button or Proceed Button */}
           {!isQuestioningEnabled && evaluationComplete && (
             <div className="p-3 bg-black bg-opacity-30 flex justify-center">
               <button
@@ -922,6 +1022,16 @@ IMPORTANT: Respond directly with your suggestions content only. Do not include y
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md"
               >
                 Next Question
+              </button>
+            </div>
+          )}
+          {isQuestioningEnabled && canAdvanceQuestion && timeLeft > 0 && (
+            <div className="p-3 bg-black bg-opacity-30 flex justify-center">
+              <button
+                onClick={handleNextQuestion}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md"
+              >
+                Proceed to Next Question
               </button>
             </div>
           )}

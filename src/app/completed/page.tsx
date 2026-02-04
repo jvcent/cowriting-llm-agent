@@ -122,7 +122,7 @@ export default function CompletedPage() {
               {/* Question 1 */}
               <div>
                 <label className="block mb-2">
-                  After completing the task, how confident are you that you
+                  How confident are you that you
                   could produce high-quality piece of writing on similar
                   assignments without assistance?
                 </label>
@@ -145,8 +145,7 @@ export default function CompletedPage() {
               {/* Question 2 */}
               <div>
                 <label className="block mb-2">
-                  How helpful were the inputs (if any) you received while
-                  writing?
+                  How helpful was the support provided to you during writing?
                 </label>
                 <select
                   name="inputHelpfulness"

@@ -10,8 +10,10 @@ export default function SoloPage() {
 
   /* ──────────────────── state ──────────────────── */
   const [finalAnswer, setFinalAnswer] = useState(""); // essay text
-  const timerDuration = 300; // seconds
+  const timerDuration = 420; // 7 minutes in seconds
   const [timeLeft, setTimeLeft] = useState(timerDuration); // countdown
+  const [canAdvanceQuestion, setCanAdvanceQuestion] = useState(false); // at 4 mins
+  const [showTimeWarning, setShowTimeWarning] = useState(false); // at 5 mins
   const roundEndedRef = useRef(false); // flag: time up
   const startTimeRef = useRef(Date.now()); // for elapsed time
 
@@ -105,14 +107,15 @@ export default function SoloPage() {
       currentQuestionIndex,
       addSoloEssay,
       startNewRound,
-    ]
+    ],
   );
 
   /* ──────────────────── countdown ──────────────────── */
   useEffect(() => {
     if (timeLeft <= 0) {
-      roundEndedRef.current = true; // stop the clock
-      return; // wait for user to click "Next Question"
+      // Auto-submit at 7 mins (420 seconds)
+      handleNextQuestion(true);
+      return;
     }
     if (roundEndedRef.current) return; // safeguard
 
@@ -120,10 +123,23 @@ export default function SoloPage() {
     return () => clearTimeout(id);
   }, [timeLeft]);
 
-  // Add warning effect
+  // Enable "Next Question" button at 4 mins (240 seconds remaining)
   useEffect(() => {
-    if (timeLeft === 180 && !finalAnswer.trim()) {
-      // 2 minutes = 120 seconds, so 300 - 120 = 180
+    if (timeLeft <= 240) {
+      setCanAdvanceQuestion(true);
+    }
+  }, [timeLeft]);
+
+  // Show warning at 5 mins (300 seconds remaining)
+  useEffect(() => {
+    if (timeLeft === 300) {
+      setShowTimeWarning(true);
+    }
+  }, [timeLeft]);
+
+  // Add warning effect for empty response at 2 mins
+  useEffect(() => {
+    if (timeLeft === 120 && !finalAnswer.trim()) {
       setShowWarning(true);
     }
   }, [timeLeft, finalAnswer]);
@@ -149,34 +165,22 @@ export default function SoloPage() {
           </div>
         </div>
       )}
-      <div className="w-full pr-2 flex flex-col h-full overflow-hidden">
-        {/* ── prompt + timer ── */}
+      <div className="w-1/2 pr-2 flex flex-col h-full overflow-hidden">
+        {/* ── prompt (no timer) ── */}
         {currentQuestion && (
           <div className="bg-white bg-opacity-20 p-4 rounded-md mb-4 border-2 border-purple-400">
-            <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl text-white font-semibold">
-                Writing Prompt:
-              </h2>
-              <div
-                className={`p-2 rounded-lg ${
-                  timeLeft > 20
-                    ? "bg-green-700"
-                    : timeLeft > 10
-                    ? "bg-yellow-600 animate-pulse"
-                    : "bg-red-700 animate-pulse"
-                } ml-4`}
-              >
-                <div className="text-xl font-mono text-white">
-                  {formatTime(timeLeft)}
-                </div>
-                {timeLeft <= 20 && (
-                  <div className="text-xs text-white text-center">
-                    {timeLeft <= 10 ? "Time almost up!" : "Finish soon!"}
-                  </div>
-                )}
-              </div>
-            </div>
+            <h2 className="text-xl text-white font-semibold mb-2">
+              Writing Prompt:
+            </h2>
             <p className="text-white text-lg">{currentQuestion}</p>
+          </div>
+        )}
+        {/* Time warning message */}
+        {showTimeWarning && (
+          <div className="bg-yellow-600 bg-opacity-80 p-3 rounded-md mb-4 border-2 border-yellow-400">
+            <p className="text-white text-center font-semibold">
+              ⏱️ You have 2 more minutes remaining
+            </p>
           </div>
         )}
 
@@ -191,14 +195,14 @@ export default function SoloPage() {
             disabled={timeLeft <= 0}
           />
 
-          {/* show button only after time expires */}
-          {timeLeft <= 0 && (
+          {/* show button after 4 mins or when time expires */}
+          {canAdvanceQuestion && timeLeft > 0 && (
             <div className="mt-4 flex justify-center">
               <button
-                onClick={() => handleNextQuestion(true)}
+                onClick={() => handleNextQuestion(false)}
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md"
               >
-                Next Question
+                Proceed to Next Question
               </button>
             </div>
           )}
