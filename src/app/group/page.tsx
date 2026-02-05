@@ -342,11 +342,12 @@ export default function GroupPage() {
     // In your real code, you'd load creativeTopics & argumentativeTopics from
     // an API or local JSON. We'll just set loaded = true for this example
     setLoadedQuestions(true);
+    setTimeLeft(timerDuration);
   };
 
   useEffect(() => {
     fetchQuestions();
-  }, []);
+  }, [timerDuration]);
 
   const startNewRound = useCallback(
     async (overrideSet?: "creative" | "argumentative") => {
@@ -371,6 +372,8 @@ export default function GroupPage() {
       setUserHasScrolled(false);
       roundEndedRef.current = false;
       setTimeLeft(timerDuration);
+      setCanAdvanceQuestion(false);
+      setShowTimeWarning(false);
 
       // Clear current agents first
       setCurrentAgents([]);

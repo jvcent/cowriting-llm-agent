@@ -351,8 +351,9 @@ export default function SinglePage() {
     );
     setCurrentAgents([CLAUDE_AGENT_CREATIVE]);
     setCurrentQuestion(rk);
+    setTimeLeft(timerDuration);
     setLoadedQuestions(true);
-  }, [questionSequence]);
+  }, [questionSequence, timerDuration]);
 
   useEffect(() => {
     fetchQuestions();
@@ -469,6 +470,8 @@ export default function SinglePage() {
       setUserHasScrolled(false);
       roundEndedRef.current = false;
       setTimeLeft(timerDuration);
+      setCanAdvanceQuestion(false);
+      setShowTimeWarning(false);
 
       const chosen = overrideType ?? currentQuestionType;
       const topics =
@@ -519,8 +522,9 @@ export default function SinglePage() {
       const agent =
         Math.random() > 0.5 ? CLAUDE_AGENT_CREATIVE : CHATGPT_AGENT_CREATIVE;
       setSelectedAgent(agent);
+      setTimeLeft(timerDuration);
     }
-  }, [loadedQuestions, selectedAgent]);
+  }, [loadedQuestions, selectedAgent, timerDuration]);
 
   // Check for brainstorming trigger (60 seconds with <20 words)
   useEffect(() => {
